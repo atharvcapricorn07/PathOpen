@@ -219,7 +219,6 @@ document.getElementById('reportBtn').addEventListener('click', () => {
   });
 });
 
-// ✅ Function to show only markers within 0.5 miles of dest
 function showNearbyADAMarkers() {
   const adaData = localStorage.getItem("ada_result");
   if (!adaData || !dest) return;
@@ -237,9 +236,32 @@ function showNearbyADAMarkers() {
         iconAnchor: [50, 20]
       });
 
-      L.marker([markerData.lat, markerData.lng], { icon }).addTo(map);
+      const marker = L.marker([markerData.lat, markerData.lng], { icon }).addTo(map);
+
+      // 👇 Add click event to show the image
+      marker.on('click', () => {
+        document.querySelectorAll('.image-overlay').forEach(el => el.remove());
+
+        const img = document.createElement('img');
+        img.src = markerData.imageUrl;
+        img.className = 'image-overlay fade-in';
+
+        document.body.appendChild(img);
+
+        const screenPos = map.latLngToContainerPoint(marker.getLatLng());
+        img.style.left = `${screenPos.x - 100}px`;
+        img.style.top = `${screenPos.y - 100}px`;
+
+        // optional: auto-close image on next map click
+        map.once('click', () => {
+          img.classList.remove('fade-in');
+          img.classList.add('fade-out');
+          setTimeout(() => img.remove(), 300);
+        });
+      });
     }
   });
 
   localStorage.removeItem("ada_result");
 }
+
