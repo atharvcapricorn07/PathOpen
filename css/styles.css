@@ -230,3 +230,21 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   pointer-events: none;
 }
+.image-overlay {
+  position: absolute;
+  max-width: 200px;
+  max-height: 200px;
+  border: 2px solid #333;
+  background: white;
+  z-index: 999;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.fade-in {
+  opacity: 1;
+}
+
+.fade-out {
+  opacity: 0;
+}
