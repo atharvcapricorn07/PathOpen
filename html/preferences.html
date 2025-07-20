@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Preferences – PathAble</title>
+  <link rel="stylesheet" href="../css/menu.css" />
+</head>
+<body class="settings-body">
+  <main class="settings-container">
+    <h1 class="settings-title">Preferences</h1>
+    <div class="settings-scrollable">
+
+      <!-- Mobility Style -->
+      <section class="settings-card">
+        <h2>Mobility Preferences</h2>
+
+        <div class="setting-group">
+          <label for="terrain">Preferred Terrain</label>
+          <select id="terrain">
+            <option value="flat">Flat/Even Surfaces</option>
+            <option value="any">Any Surface</option>
+            <option value="no-gravel">Avoid Gravel</option>
+            <option value="paved-only">Paved Only</option>
+          </select>
+        </div>
+
+        <div class="setting-group">
+          <label for="surfaceStability">Surface Stability</label>
+          <select id="surfaceStability">
+            <option value="stable">Stable Only</option>
+            <option value="someUneven">Some Uneven OK</option>
+            <option value="any">Any</option>
+          </select>
+        </div>
+
+        <div class="setting-toggle">
+          <label for="avoidCurbs">Avoid Curbs</label>
+          <input type="checkbox" id="avoidCurbs" />
+        </div>
+
+        <div class="setting-toggle">
+          <label for="widePaths">Need Wide Paths</label>
+          <input type="checkbox" id="widePaths" />
+        </div>
+      </section>
+
+      <!-- Assistive Tech -->
+      <section class="settings-card">
+        <h2>Assistive Technology</h2>
+
+        <div class="setting-toggle">
+          <label for="usesCrutches">Uses Crutches</label>
+          <input type="checkbox" id="usesCrutches" />
+        </div>
+
+        <div class="setting-toggle">
+          <label for="mobilityScooter">Mobility Scooter</label>
+          <input type="checkbox" id="mobilityScooter" />
+        </div>
+
+        <div class="setting-toggle">
+          <label for="needsHandrails">Needs Handrails</label>
+          <input type="checkbox" id="needsHandrails" />
+        </div>
+      </section>
+
+      <!-- UI Preferences -->
+      <section class="settings-card">
+        <h2>UI Preferences</h2>
+
+        <div class="setting-toggle">
+          <label for="highContrast">High Contrast Mode</label>
+          <input type="checkbox" id="highContrast" />
+        </div>
+
+        <div class="setting-toggle">
+          <label for="colorBlindMode">Color Blind Mode</label>
+          <input type="checkbox" id="colorBlindMode" />
+        </div>
+
+        <div class="setting-toggle">
+          <label for="fontLarge">Larger Font</label>
+          <input type="checkbox" id="fontLarge" />
+        </div>
+      </section>
+
+      <!-- Actions -->
+      <div class="settings-actions">
+        <button id="savePreferencesBtn" class="save-button">Save Preferences</button>
+        <button id="resetPreferencesBtn" class="danger-button">Reset</button>
+      </div>
+
+      <a href="/index.html" class="home-button no-underline">&larr; Back</a>
+    </div>
+  </main>
+
+  <script src="../js/preferences.js"></script>
+</body>
+</html>
