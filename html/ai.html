@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ADA Feature Detection</title>
+  <link rel="stylesheet" href="../css/ai.css">
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+</head>
+<body>
+  <div class="home-button-wrapper">
+    <button class="home-button" onclick="location.href='../index.html'">Back</button>
+  </div>
+
+  <div class="container">
+    <h1>Upload an Image to Detect ADA Features</h1>
+    
+    <input type="file" id="imageInput" accept="image/*" />
+    <img id="preview" />
+    
+    <div id="map"></div>
+    
+    <div id="markerArea"></div>
+
+    <button id="saveButton">Save and Return</button>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    let resultData = [];
+    let map;
+    let markerRefs = []; // hold references to markers and their labels
+
+    document.getElementById('imageInput').addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const imageUrl = URL.createObjectURL(file);
+
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const res = await fetch("http://127.0.0.1:5000/analyze", {
+        method: "POST",
+        body: formData
+      });
+
+      const result = await res.json(); // { "elevator": 0.93, "ramp": 0.84, ... }
+
+      const newMarkers = Object.entries(result).map(([label, confidence]) => ({
+        label,
+        confidence,
+        imageUrl,
+        lat: null,
+        lng: null
+      }));
+
+      resultData.push(...newMarkers);
+
+      initMapWithDraggableMarkers(newMarkers);
+    });
+
+    function initMapWithDraggableMarkers(result) {
+      if (!map) {
+        navigator.geolocation.getCurrentPosition((position) => {
+          const userLatLng = [position.coords.latitude, position.coords.longitude];
+          map = L.map('map').setView(userLatLng, 17);
+
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+          }).addTo(map);
+
+          placeMarkers(result, userLatLng);
+        }, () => {
+          const fallback = [47.6062, -122.3321];
+          map = L.map('map').setView(fallback, 14);
+
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+          }).addTo(map);
+
+          placeMarkers(result, fallback);
+        });
+      } else {
+        placeMarkers(result, map.getCenter());
+      }
+    }
+
+    function placeMarkers(newMarkers, center) {
+      let offset = 0.0002;
+
+      newMarkers.forEach(markerData => {
+        const { label, imageUrl } = markerData;
+
+        const icon = L.divIcon({
+          className: 'custom-marker-label',
+          html: `<div class="marker-label">${label}</div>`,
+          iconSize: [100, 40],
+          iconAnchor: [50, 20]
+        });
+
+        const latlng = [center[0] + offset, center[1] + offset];
+        offset += 0.0003;
+
+        const marker = L.marker(latlng, {
+          icon,
+          draggable: true
+        }).addTo(map);
+
+        // ✅ store label on the marker directly
+        marker.label = label;
+
+        marker.on('click', () => {
+          console.log(`Clicked: ${label}`);
+          document.querySelectorAll('.image-overlay').forEach(el => el.remove());
+
+          const img = document.createElement('img');
+          img.src = imageUrl;
+          img.className = 'image-overlay fade-in';
+
+          document.body.appendChild(img);
+          const screenPos = map.latLngToContainerPoint(marker.getLatLng());
+          img.style.left = `${screenPos.x - 100}px`;
+          img.style.top = `${screenPos.y - 100}px`;
+        });
+
+        marker.on('dragend', () => {
+          const pos = marker.getLatLng();
+          markerData.lat = pos.lat;
+          markerData.lng = pos.lng;
+        });
+
+        markerData.lat = latlng[0];
+        markerData.lng = latlng[1];
+
+        markerRefs.push(marker); // ✅ keep reference for save button
+      });
+
+      map.on('click', () => {
+        console.log("Map clicked");
+        document.querySelectorAll('.image-overlay').forEach(el => {
+          el.classList.remove('fade-in');
+          el.classList.add('fade-out');
+          setTimeout(() => el.remove(), 300);
+        });
+      });
+    }
+
+    document.getElementById('saveButton').addEventListener('click', () => {
+      const markers = [];
+
+      markerRefs.forEach(marker => {
+        const latlng = marker.getLatLng();
+        markers.push({
+          label: marker.label || "Unknown",
+          lat: latlng.lat,
+          lng: latlng.lng
+        });
+      });
+
+      const existing = JSON.parse(localStorage.getItem("ada_result") || '{"markers":[]}');
+      const combined = [...existing.markers, ...markers];
+      localStorage.setItem("ada_result", JSON.stringify({ markers: combined }));
+
+      window.location.href = "../index.html";
+    });
+  </script>
+</body>
+</html>
