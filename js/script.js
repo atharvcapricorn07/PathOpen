@@ -24,14 +24,14 @@ function haversine([lat1, lon1], [lat2, lon2]) {
 }
 
 async function reverseGeocode(lat, lon) {
-  const res = await fetch(`http://127.0.0.1:5000/reverse?lat=${lat}&lon=${lon}`);
+  const res = await fetch(`https://atharvcapricorn07-pathable.hf.space/reverse?lat=${lat}&lon=${lon}`);
   if (!res.ok) throw new Error('Failed reverse geocode');
   const data = await res.json();
   return data.display_name || '';
 }
 
 async function geocode(q) {
-  const res = await fetch(`http://127.0.0.1:5000/geocode?q=${encodeURIComponent(q)}`);
+  const res = await fetch(`https://atharvcapricorn07-pathable.hf.space/geocode?q=${encodeURIComponent(q)}`);
   if (!res.ok) throw new Error('Failed geocode');
   return res.json();
 }
@@ -238,7 +238,7 @@ async function showNearbyADAMarkers() {
   const [lat, lng] = dest;
 
   try {
-    const res = await fetch(`http://127.0.0.1:5000/markers?lat=${lat}&lng=${lng}&radius=804`);
+    const res = await fetch(`https://atharvcapricorn07-pathable.hf.space/markers?lat=${lat}&lng=${lng}&radius=804`);
     const markers = await res.json();
 
     markers.forEach(markerData => {

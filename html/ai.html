@@ -106,7 +106,7 @@
       setStatus('Analyzing image...');
 
       try {
-        const res = await fetch("http://127.0.0.1:5000/analyze", {
+        const res = await fetch("https://atharvcapricorn07-pathable.hf.space/analyze", {
           method: "POST",
           body: formData
         });
@@ -245,7 +245,7 @@
           formData.append('label', ref.select.value);
           formData.append('image', uploadedFile);
 
-          await fetch('http://127.0.0.1:5000/save-marker', {
+          await fetch('https://atharvcapricorn07-pathable.hf.space/save-marker', {
             method: 'POST',
             body: formData
           });
