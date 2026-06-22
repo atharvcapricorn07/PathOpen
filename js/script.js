@@ -24,18 +24,14 @@ function haversine([lat1, lon1], [lat2, lon2]) {
 }
 
 async function reverseGeocode(lat, lon) {
-  const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
-  const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-  const res = await fetch(proxyUrl);
+  const res = await fetch(`http://127.0.0.1:5000/reverse?lat=${lat}&lon=${lon}`);
   if (!res.ok) throw new Error('Failed reverse geocode');
   const data = await res.json();
   return data.display_name || '';
 }
 
 async function geocode(q) {
-  const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`;
-  const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(nomUrl);
-  const res = await fetch(proxyUrl, { headers: { 'Accept-Language': 'en' } });
+  const res = await fetch(`http://127.0.0.1:5000/geocode?q=${encodeURIComponent(q)}`);
   if (!res.ok) throw new Error('Failed geocode');
   return res.json();
 }
@@ -143,6 +139,23 @@ document.addEventListener('click', e => {
   }
 });
 
+// --- Click on Map to Set Destination ---
+map.on('click', async (e) => {
+  if (routeActive) return;
+
+  const { lat, lng } = e.latlng;
+  dest = [lat, lng];
+
+  const address = await reverseGeocode(lat, lng);
+  endInput.value = address;
+
+  if (destMarker) destMarker.setLatLng(dest).bindPopup("Destination").openPopup();
+  else destMarker = L.marker(dest).addTo(map).bindPopup("Destination").openPopup();
+
+  map.setView(dest, map.getZoom());
+  box.innerHTML = '';
+});
+
 // --- Use My Location ---
 document.getElementById('useLocationBtn').addEventListener('click', async () => {
   if (!navigator.geolocation) {
@@ -179,7 +192,6 @@ document.getElementById('routeBtn').addEventListener('click', () => {
   routeActive = true;
   document.getElementById('cancelRouteBtn').style.display = 'inline-block';
 
-  // ✅ Show nearby ADA markers after routing
   showNearbyADAMarkers();
 });
 
@@ -219,16 +231,17 @@ document.getElementById('reportBtn').addEventListener('click', () => {
   });
 });
 
-function showNearbyADAMarkers() {
-  const adaData = localStorage.getItem("ada_result");
-  if (!adaData || !dest) return;
+// --- Show Nearby ADA Markers (from Supabase) ---
+async function showNearbyADAMarkers() {
+  if (!dest) return;
 
-  const { markers } = JSON.parse(adaData);
-  const HALF_MILE_METERS = 804.67;
+  const [lat, lng] = dest;
 
-  markers.forEach(markerData => {
-    const distance = haversine([markerData.lat, markerData.lng], dest);
-    if (distance <= HALF_MILE_METERS) {
+  try {
+    const res = await fetch(`http://127.0.0.1:5000/markers?lat=${lat}&lng=${lng}&radius=804`);
+    const markers = await res.json();
+
+    markers.forEach(markerData => {
       const icon = L.divIcon({
         className: 'custom-marker-label',
         html: `<div class="marker-label">${markerData.label}</div>`,
@@ -238,30 +251,15 @@ function showNearbyADAMarkers() {
 
       const marker = L.marker([markerData.lat, markerData.lng], { icon }).addTo(map);
 
-      // 👇 Add click event to show the image
-      marker.on('click', () => {
-        document.querySelectorAll('.image-overlay').forEach(el => el.remove());
+      marker.bindPopup(`
+        <img src="${markerData.image_url}"
+          style="width:150px; height:150px; object-fit:cover; border-radius:8px; display:block;"
+        />
+        <div style="text-align:center; margin-top:6px; font-weight:bold;">${markerData.label}</div>
+      `, { maxWidth: 170 });
+    });
 
-        const img = document.createElement('img');
-        img.src = markerData.imageUrl;
-        img.className = 'image-overlay fade-in';
-
-        document.body.appendChild(img);
-
-        const screenPos = map.latLngToContainerPoint(marker.getLatLng());
-        img.style.left = `${screenPos.x - 100}px`;
-        img.style.top = `${screenPos.y - 100}px`;
-
-        // optional: auto-close image on next map click
-        map.once('click', () => {
-          img.classList.remove('fade-in');
-          img.classList.add('fade-out');
-          setTimeout(() => img.remove(), 300);
-        });
-      });
-    }
-  });
-
-  localStorage.removeItem("ada_result");
+  } catch (e) {
+    console.error('Failed to load ADA markers:', e);
+  }
 }
-

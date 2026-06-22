@@ -2,44 +2,30 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>PathAble Demo</title>
+  <title>PathAble</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <!-- Leaflet CSS -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css"
-  />
-  <!-- your CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
 
   <div id="navbar">
-  <div class="input-group">
-    <input id="startSearch" type="text" placeholder="Start" autocomplete="off" />
-    <button id="useLocationBtn" title="Use my location">📍</button>
+    <div class="input-group">
+      <input id="startSearch" type="text" placeholder="Start" autocomplete="off" />
+      <button id="useLocationBtn" title="Use my location">📍</button>
+    </div>
+    <input id="endSearch" type="text" placeholder="End" autocomplete="off" />
+    <button id="reportBtn">➕</button>
   </div>
-  <input id="endSearch" type="text" placeholder="End" autocomplete="off" />
-  <button id="settingsBtn">⚙️</button>
-  <button id="preferencesBtn">✨</button>
-  <button id="profileBtn">👤</button>
-  <button id="reportBtn">➕</button>
-</div>
 
-<div id="suggestions"></div>
-<div id="map"></div>
-<button id="routeBtn">Get Directions</button>
-<button id="cancelRouteBtn" style="display:none;">Cancel Route</button>
+  <div id="suggestions"></div>
+  <div id="map"></div>
+  <button id="routeBtn">Get Directions</button>
+  <button id="cancelRouteBtn" style="display:none;">Cancel Route</button>
 
-
-  <!-- Leaflet & Routing JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
-  <!-- your JS -->
   <script src="js/script.js"></script>
 </body>
 </html>
