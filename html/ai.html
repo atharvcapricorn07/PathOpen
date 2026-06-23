@@ -136,61 +136,61 @@
 
     function initMap(result) {
 
-      if (!map) {
+  if (!map) {
 
-        navigator.geolocation.getCurrentPosition(
+    navigator.geolocation.getCurrentPosition(
 
-          (pos) => {
+      (pos) => {
 
-            const center = [
-              pos.coords.latitude,
-              pos.coords.longitude
-            ];
+        const center = [
+          pos.coords.latitude,
+          pos.coords.longitude
+        ];
 
-            map = L.map("map").setView(center, 17);
+        map = L.map("map").setView(center, 16);
 
-            L.tileLayer(
-              "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-              {
-                attribution:
-                  "&copy; OpenStreetMap contributors"
-              }
-            ).addTo(map);
-
-            placeMarkers(result, center);
-          },
-
-          () => {
-
-            const center = [
-              47.6062,
-              -122.3321
-            ];
-
-            map = L.map("map").setView(center, 14);
-
-            L.tileLayer(
-              "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-              {
-                attribution:
-                  "&copy; OpenStreetMap contributors"
-              }
-            ).addTo(map);
-
-            placeMarkers(result, center);
+        L.tileLayer(
+          'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+          {
+            subdomains: 'abcd',
+            maxZoom: 19
           }
-        );
+        ).addTo(map);
 
-      } else {
+        placeMarkers(result, center);
+      },
 
-        const center = map.getCenter();
+      () => {
 
-        placeMarkers(
-          result,
-          [center.lat, center.lng]
-        );
+        const center = [
+          47.6062,
+          -122.3321
+        ];
+
+        map = L.map("map").setView(center, 16);
+
+        L.tileLayer(
+          'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+          {
+            subdomains: 'abcd',
+            maxZoom: 19
+          }
+        ).addTo(map);
+
+        placeMarkers(result, center);
       }
-    }
+    );
+
+  } else {
+
+    const center = map.getCenter();
+
+    placeMarkers(
+      result,
+      [center.lat, center.lng]
+    );
+  }
+}
 
     function placeMarkers(result, center) {
 
