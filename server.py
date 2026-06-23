@@ -41,6 +41,17 @@ def analyze_image():
 
     return jsonify(confidence)
 
+@app.route("/test-storage")
+def test_storage():
+    import requests as req
+    test_url = f"{SUPABASE_URL}/storage/v1/object/ada-images/test.txt"
+    headers = {
+        "Authorization": f"Bearer {SUPABASE_KEY.strip()}",
+        "Content-Type": "text/plain"
+    }
+    r = req.post(test_url, data=b"hello", headers=headers)
+    return jsonify({"status": r.status_code, "response": r.text})
+
 @app.route("/debug")
 def debug():
     return jsonify({
