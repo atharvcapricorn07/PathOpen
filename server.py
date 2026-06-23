@@ -4,6 +4,10 @@ from transformers import CLIPProcessor, CLIPModel
 from supabase import create_client
 import torch, io, os
 from flask_cors import CORS
+import time
+
+filename = f"{label.replace(' ', '_')}_{int(abs(lat)*1000)}_{int(abs(lng)*1000)}_{int(time.time())}.jpg"
+
 
 app = Flask(__name__)
 CORS(app, origins=["https://pathable-mu.vercel.app", "https://atharvcapricorn07-pathable.hf.space", "http://127.0.0.1:5000"])
