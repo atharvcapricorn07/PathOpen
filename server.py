@@ -4,12 +4,11 @@ from transformers import CLIPProcessor, CLIPModel
 from supabase import create_client
 import torch, io, os
 from flask_cors import CORS
-import os
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["https://pathable-mu.vercel.app", "https://atharvcapricorn07-pathable.hf.space", "http://127.0.0.1:5000"])
 
-# Supabase setup - replace these with your actual values
+# Supabase setup
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -26,7 +25,6 @@ def index():
 def static_files(filename):
     return send_from_directory(os.path.dirname(os.path.abspath(__file__)), filename)
 
-@app.route("/analyze", methods=["POST"])
 @app.route("/analyze", methods=["POST"])
 def analyze_image():
     file = request.files['image']
@@ -65,13 +63,14 @@ def get_markers():
 
     return jsonify(result.data)
 
-
 @app.route("/geocode")
 def geocode():
     import requests
     q = request.args.get('q', '')
     url = f"https://nominatim.openstreetmap.org/search?format=json&q={q}"
     res = requests.get(url, headers={"User-Agent": "PathAble/1.0"})
+    if not res.text.strip():
+        return jsonify([])
     return jsonify(res.json())
 
 @app.route("/reverse")
@@ -81,11 +80,9 @@ def reverse():
     lon = request.args.get('lon')
     url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}"
     res = requests.get(url, headers={"User-Agent": "PathAble/1.0"})
+    if not res.text.strip():
+        return jsonify({})
     return jsonify(res.json())
-
-@app.route("/save-marker", methods=["POST"])
-@app.route("/save-marker", methods=["POST"])
-
 
 @app.route("/save-marker", methods=["POST"])
 def save_marker():
@@ -104,7 +101,7 @@ def save_marker():
 
         return jsonify({"success": True})
     except Exception as e:
-        print(f"ERROR: {e}")
+        print(f"ERROR in save_marker: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
