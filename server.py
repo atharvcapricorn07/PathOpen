@@ -2,12 +2,8 @@ from flask import Flask, request, jsonify, send_from_directory
 from PIL import Image
 from transformers import CLIPProcessor, CLIPModel
 from supabase import create_client
-import torch, io, os
+import torch, io, os, time
 from flask_cors import CORS
-import time
-
-filename = f"{label.replace(' ', '_')}_{int(abs(lat)*1000)}_{int(abs(lng)*1000)}_{int(time.time())}.jpg"
-
 
 app = Flask(__name__)
 CORS(app, origins=["https://pathable-mu.vercel.app", "https://atharvcapricorn07-pathable.hf.space", "http://127.0.0.1:5000"])
@@ -45,17 +41,6 @@ def analyze_image():
 
     return jsonify(confidence)
 
-@app.route("/test-storage")
-def test_storage():
-    import requests as req
-    test_url = f"{SUPABASE_URL}/storage/v1/object/ada-images/test.txt"
-    headers = {
-        "Authorization": f"Bearer {SUPABASE_KEY.strip()}",
-        "Content-Type": "text/plain"
-    }
-    r = req.post(test_url, data=b"hello", headers=headers)
-    return jsonify({"status": r.status_code, "response": r.text})
-
 @app.route("/debug")
 def debug():
     return jsonify({
@@ -90,7 +75,7 @@ def save_marker():
         image_url = None
         if file:
             file_bytes = file.read()
-            filename = f"{label.replace(' ', '_')}_{int(abs(lat)*1000)}_{int(abs(lng)*1000)}.jpg"
+            filename = f"{label.replace(' ', '_')}_{int(abs(lat)*1000)}_{int(abs(lng)*1000)}_{int(time.time())}.jpg"
             storage_url = f"{SUPABASE_URL}/storage/v1/object/ada-images/{filename}"
             headers = {
                 "Authorization": f"Bearer {SUPABASE_KEY.strip()}",
