@@ -4,13 +4,14 @@ from transformers import CLIPProcessor, CLIPModel
 from supabase import create_client
 import torch, io, os
 from flask_cors import CORS
+import os
 
 app = Flask(__name__)
 CORS(app)
 
 # Supabase setup - replace these with your actual values
-SUPABASE_URL = "https://vwsayealhfyhzrobhkis.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3c2F5ZWFsaGZ5aHpyb2Joa2lzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjE0NTc4NCwiZXhwIjoyMDk3NzIxNzg0fQ.erHjrV0qbGQ6mFQuLI2EywW5O24HZuUQkBRFdKjg0mA"
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # CLIP model
