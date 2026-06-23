@@ -214,21 +214,9 @@ document.getElementById('cancelRouteBtn').addEventListener('click', () => {
   alert('Route canceled. You can now pick a new destination.');
 });
 
-// --- Menu Buttons ---
-document.getElementById('settingsBtn').addEventListener('click', () => {
-  window.location.href = 'html/settings.html';
-});
+// --- Report Button ---
 document.getElementById('reportBtn').addEventListener('click', () => {
   window.location.href = 'html/ai.html';
-});
-['preferencesBtn', 'profileBtn'].forEach(id => {
-  document.getElementById(id).addEventListener('click', () => {
-    if (id === 'preferencesBtn') {
-      window.location.href = 'html/preferences.html';
-    } else if (id === 'profileBtn') {
-      window.location.href = 'html/profile.html';
-    }
-  });
 });
 
 // --- Show Nearby ADA Markers (from Supabase) ---
