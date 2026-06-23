@@ -89,39 +89,22 @@ def reverse():
 
 @app.route("/save-marker", methods=["POST"])
 def save_marker():
-    import requests as req
     try:
         lat = float(request.form.get('lat'))
         lng = float(request.form.get('lng'))
         label = request.form.get('label')
-        file = request.files.get('image')
 
-        image_url = None
-        if file:
-            file_bytes = file.read()
-            filename = f"{label.replace(' ', '_')}_{int(lat*1000)}_{int(lng*1000)}.jpg"
-            storage_url = f"{SUPABASE_URL}/storage/v1/object/ada-images/{filename}"
-            headers = {
-                "Authorization": f"Bearer {SUPABASE_KEY.strip()}",
-                "Content-Type": "image/jpeg"
-            }
-            r = req.post(storage_url, data=file_bytes, headers=headers)
-            print(f"Storage status: {r.status_code}, response: {r.text}")
-            if r.status_code in [200, 201]:
-                image_url = f"{SUPABASE_URL}/storage/v1/object/public/ada-images/{filename}"
-
-        print(f"Inserting marker: {label} at {lat},{lng}, image_url={image_url}")
         supabase.table("ada_markers").insert({
             "lat": lat,
             "lng": lng,
             "label": label,
-            "image_url": image_url,
+            "image_url": None,
             "location": f"POINT({lng} {lat})"
         }).execute()
 
         return jsonify({"success": True})
     except Exception as e:
-        print(f"ERROR in save_marker: {e}")
+        print(f"ERROR: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
