@@ -7,6 +7,31 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
   <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    #fab {
+      position: fixed;
+      bottom: 28px;
+      right: 20px;
+      z-index: 1000;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 50px;
+      padding: 14px 20px;
+      font-size: 15px;
+      font-weight: 600;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s, transform 0.1s;
+    }
+    #fab:active {
+      background: #1d4ed8;
+      transform: scale(0.96);
+    }
+  </style>
 </head>
 <body>
 
@@ -16,13 +41,16 @@
       <button id="useLocationBtn" title="Use my location">📍</button>
     </div>
     <input id="endSearch" type="text" placeholder="End" autocomplete="off" />
-    <button id="reportBtn">➕</button>
   </div>
 
   <div id="suggestions"></div>
   <div id="map"></div>
   <button id="routeBtn">Get Directions</button>
   <button id="cancelRouteBtn" style="display:none;">Cancel Route</button>
+
+  <button id="fab">
+    📷 Report Feature
+  </button>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>

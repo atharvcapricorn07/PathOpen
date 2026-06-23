@@ -224,8 +224,7 @@ document.getElementById('cancelRouteBtn').addEventListener('click', () => {
 });
 
 // --- Report Button ---
-document.getElementById('reportBtn').addEventListener('click', () => {
-  window.location.href = 'html/ai.html';
+document.getElementById('fab').addEventListener('click', () => {  window.location.href = 'html/ai.html';
 });
 
 // --- Show Nearby ADA Markers (from Supabase) ---
