@@ -4,7 +4,7 @@ let routeActive = false;
 let adaMarkers = [];
 
 const map = L.map('map').setView([0, 0], 13);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
   attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
   subdomains: 'abcd',
   maxZoom: 19
@@ -165,7 +165,7 @@ document.getElementById('routeBtn').addEventListener('click', () => {
     routeWhileDragging: false,
     draggableWaypoints: false,
     showAlternatives: false,
-    lineOptions: { styles: [{ color: '#2563eb', weight: 4 }] }
+    lineOptions: { styles: [{ color: '#0d9488', weight: 4 }] }
   }).addTo(map);
   routeActive = true;
   document.getElementById('cancelRouteBtn').style.display = 'inline-block';
