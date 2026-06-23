@@ -1,10 +1,13 @@
 // --- Setup ---
 let start = null, dest = null, routeControl;
 let routeActive = false;
+let adaMarkers = [];
 
 const map = L.map('map').setView([0, 0], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+  subdomains: 'abcd',
+  maxZoom: 19
 }).addTo(map);
 
 let startMarker = null;
@@ -25,10 +28,7 @@ function haversine([lat1, lon1], [lat2, lon2]) {
   const R = 6371e3;
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat/2)**2 +
-            Math.cos(toRad(lat1)) *
-            Math.cos(toRad(lat2)) *
-            Math.sin(dLon/2)**2;
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
@@ -40,9 +40,7 @@ async function reverseGeocode(lat, lon) {
     );
     const data = await res.json();
     return data.display_name || '';
-  } catch {
-    return '';
-  }
+  } catch { return ''; }
 }
 
 async function geocode(q) {
@@ -70,27 +68,18 @@ navigator.geolocation.getCurrentPosition(async pos => {
   startInput.value = address;
   if (startMarker) startMarker.setLatLng(start);
   else startMarker = L.marker(start).addTo(map).bindPopup("Start (Your location)").openPopup();
-}, () => {
-  map.setView([47.6, -122.3], 12);
-});
+}, () => { map.setView([47.6, -122.3], 12); });
 
-// --- Typeahead + Suggestions ---
+// --- Typeahead ---
 [startInput, endInput].forEach(input => {
   input.addEventListener('input', async () => {
     activeInput = input;
     const q = input.value.trim();
     if (q.length < 3) { box.innerHTML = ''; return; }
     let results;
-    try {
-      results = await geocode(q);
-    } catch {
-      box.innerHTML = '<div class="suggestion">Network error</div>';
-      return;
-    }
-    if (!results.length) {
-      box.innerHTML = '<div class="suggestion">No results</div>';
-      return;
-    }
+    try { results = await geocode(q); }
+    catch { box.innerHTML = '<div class="suggestion">Network error</div>'; return; }
+    if (!results.length) { box.innerHTML = '<div class="suggestion">No results</div>'; return; }
     if (start) {
       results.sort((a,b) => {
         const da = haversine(start, [parseFloat(a.lat), parseFloat(a.lon)]);
@@ -99,13 +88,10 @@ navigator.geolocation.getCurrentPosition(async pos => {
       });
     }
     lastSuggestions = results;
-    box.innerHTML = results.slice(0,5).map(r => `
-      <div class="suggestion" data-lat="${r.lat}" data-lon="${r.lon}">
-        ${r.display_name}
-      </div>
-    `).join('');
+    box.innerHTML = results.slice(0,5).map(r =>
+      `<div class="suggestion" data-lat="${r.lat}" data-lon="${r.lon}">${r.display_name}</div>`
+    ).join('');
   });
-
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter' && lastSuggestions.length) {
       const first = lastSuggestions[0];
@@ -113,18 +99,15 @@ navigator.geolocation.getCurrentPosition(async pos => {
       box.innerHTML = '';
     }
   });
-
   input.addEventListener('focus', () => { activeInput = input; });
 });
 
-// --- Suggestion Click ---
 box.addEventListener('click', e => {
   const el = e.target.closest('.suggestion');
   if (!el) return;
   selectSuggestion(el.textContent, el.dataset.lat, el.dataset.lon);
 });
 
-// --- Select Suggestion ---
 function selectSuggestion(name, lat, lon) {
   if (routeActive) return;
   if (activeInput === startInput) {
@@ -142,14 +125,12 @@ function selectSuggestion(name, lat, lon) {
   map.setView([lat, lon], 16);
 }
 
-// --- Click Outside to Close ---
 document.addEventListener('click', e => {
   if (!wrapper.contains(e.target) && e.target !== startInput && e.target !== endInput) {
     box.innerHTML = '';
   }
 });
 
-// --- Click on Map to Set Destination ---
 map.on('click', async (e) => {
   if (routeActive) return;
   const { lat, lng } = e.latlng;
@@ -162,12 +143,8 @@ map.on('click', async (e) => {
   box.innerHTML = '';
 });
 
-// --- Use My Location ---
 document.getElementById('useLocationBtn').addEventListener('click', async () => {
-  if (!navigator.geolocation) {
-    showToast('Geolocation not supported by your browser.');
-    return;
-  }
+  if (!navigator.geolocation) { showToast('Geolocation not supported.'); return; }
   navigator.geolocation.getCurrentPosition(async pos => {
     start = [pos.coords.latitude, pos.coords.longitude];
     const address = await reverseGeocode(...start);
@@ -175,17 +152,13 @@ document.getElementById('useLocationBtn').addEventListener('click', async () => 
     if (startMarker) startMarker.setLatLng(start).bindPopup("Start (Your location)").openPopup();
     else startMarker = L.marker(start).addTo(map).bindPopup("Start (Your location)").openPopup();
     map.setView(start, 16);
-  }, () => {
-    showToast('Unable to retrieve your location.');
-  });
+  }, () => { showToast('Unable to retrieve your location.'); });
 });
 
-// --- Routing ---
 document.getElementById('routeBtn').addEventListener('click', () => {
   if (!start) return showToast('Set a start location first.');
   if (!dest) return showToast('Set a destination first.');
   if (routeControl) map.removeControl(routeControl);
-
   routeControl = L.Routing.control({
     waypoints: [L.latLng(start), L.latLng(dest)],
     router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
@@ -194,15 +167,15 @@ document.getElementById('routeBtn').addEventListener('click', () => {
     showAlternatives: false,
     lineOptions: { styles: [{ color: '#2563eb', weight: 4 }] }
   }).addTo(map);
-
   routeActive = true;
   document.getElementById('cancelRouteBtn').style.display = 'inline-block';
   showNearbyADAMarkers();
 });
 
-// --- Cancel Route ---
 document.getElementById('cancelRouteBtn').addEventListener('click', () => {
   if (routeControl) { map.removeControl(routeControl); routeControl = null; }
+  adaMarkers.forEach(m => map.removeLayer(m));
+  adaMarkers = [];
   dest = null;
   routeActive = false;
   document.getElementById('cancelRouteBtn').style.display = 'none';
@@ -211,12 +184,10 @@ document.getElementById('cancelRouteBtn').addEventListener('click', () => {
   showToast('Route cancelled. Pick a new destination.');
 });
 
-// --- Report Button ---
 document.getElementById('fab').addEventListener('click', () => {
   window.location.href = 'html/ai.html';
 });
 
-// --- Show Nearby ADA Markers (from Supabase) ---
 async function showNearbyADAMarkers() {
   if (!dest) return;
   const [lat, lng] = dest;
@@ -232,13 +203,10 @@ async function showNearbyADAMarkers() {
       });
       const marker = L.marker([markerData.lat, markerData.lng], { icon }).addTo(map);
       marker.bindPopup(`
-        <img src="${markerData.image_url}"
-          style="width:150px; height:150px; object-fit:cover; border-radius:8px; display:block;"
-        />
-        <div style="text-align:center; margin-top:6px; font-weight:bold;">${markerData.label}</div>
+        <img src="${markerData.image_url}" style="width:150px;height:150px;object-fit:cover;border-radius:8px;display:block;" />
+        <div style="text-align:center;margin-top:6px;font-weight:bold;">${markerData.label}</div>
       `, { maxWidth: 170 });
+      adaMarkers.push(marker);
     });
-  } catch (e) {
-    console.error('Failed to load ADA markers:', e);
-  }
+  } catch (e) { console.error('Failed to load ADA markers:', e); }
 }
