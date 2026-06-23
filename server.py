@@ -63,27 +63,6 @@ def get_markers():
 
     return jsonify(result.data)
 
-@app.route("/geocode")
-def geocode():
-    import requests
-    q = request.args.get('q', '')
-    url = f"https://nominatim.openstreetmap.org/search?format=json&q={q}"
-    res = requests.get(url, headers={"User-Agent": "PathAble/1.0"})
-    if not res.text.strip():
-        return jsonify([])
-    return jsonify(res.json())
-
-@app.route("/reverse")
-def reverse():
-    import requests
-    lat = request.args.get('lat')
-    lon = request.args.get('lon')
-    url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}"
-    res = requests.get(url, headers={"User-Agent": "PathAble/1.0"})
-    if not res.text.strip():
-        return jsonify({})
-    return jsonify(res.json())
-
 @app.route("/save-marker", methods=["POST"])
 def save_marker():
     try:

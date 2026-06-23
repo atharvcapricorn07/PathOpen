@@ -24,14 +24,23 @@ function haversine([lat1, lon1], [lat2, lon2]) {
 }
 
 async function reverseGeocode(lat, lon) {
-  const res = await fetch(`https://atharvcapricorn07-pathable.hf.space/reverse?lat=${lat}&lon=${lon}`);
-  if (!res.ok) throw new Error('Failed reverse geocode');
-  const data = await res.json();
-  return data.display_name || '';
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
+      { headers: { 'Accept-Language': 'en' } }
+    );
+    const data = await res.json();
+    return data.display_name || '';
+  } catch {
+    return '';
+  }
 }
 
 async function geocode(q) {
-  const res = await fetch(`https://atharvcapricorn07-pathable.hf.space/geocode?q=${encodeURIComponent(q)}`);
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`,
+    { headers: { 'Accept-Language': 'en' } }
+  );
   if (!res.ok) throw new Error('Failed geocode');
   return res.json();
 }
