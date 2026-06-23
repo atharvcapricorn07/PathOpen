@@ -43,6 +43,14 @@ def analyze_image():
 
     return jsonify(confidence)
 
+@app.route("/debug")
+def debug():
+    return jsonify({
+        "supabase_url": SUPABASE_URL,
+        "key_length": len(SUPABASE_KEY) if SUPABASE_KEY else 0,
+        "key_starts_with": SUPABASE_KEY[:10] if SUPABASE_KEY else "EMPTY"
+    })
+
 @app.route("/markers", methods=["GET"])
 def get_markers():
     lat = float(request.args.get('lat'))
