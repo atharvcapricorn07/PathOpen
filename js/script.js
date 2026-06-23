@@ -10,6 +10,15 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 let startMarker = null;
 let destMarker = null;
 
+// --- Toast ---
+function showToast(msg, duration = 3000) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => toast.classList.remove('show'), duration);
+}
+
 // --- Helpers ---
 function haversine([lat1, lon1], [lat2, lon2]) {
   const toRad = d => d * Math.PI / 180;
@@ -57,10 +66,8 @@ let activeInput = null;
 navigator.geolocation.getCurrentPosition(async pos => {
   start = [pos.coords.latitude, pos.coords.longitude];
   map.setView(start, 16);
-
   const address = await reverseGeocode(...start);
   startInput.value = address;
-
   if (startMarker) startMarker.setLatLng(start);
   else startMarker = L.marker(start).addTo(map).bindPopup("Start (Your location)").openPopup();
 }, () => {
@@ -72,10 +79,7 @@ navigator.geolocation.getCurrentPosition(async pos => {
   input.addEventListener('input', async () => {
     activeInput = input;
     const q = input.value.trim();
-    if (q.length < 3) {
-      box.innerHTML = '';
-      return;
-    }
+    if (q.length < 3) { box.innerHTML = ''; return; }
     let results;
     try {
       results = await geocode(q);
@@ -110,9 +114,7 @@ navigator.geolocation.getCurrentPosition(async pos => {
     }
   });
 
-  input.addEventListener('focus', () => {
-    activeInput = input;
-  });
+  input.addEventListener('focus', () => { activeInput = input; });
 });
 
 // --- Suggestion Click ---
@@ -125,7 +127,6 @@ box.addEventListener('click', e => {
 // --- Select Suggestion ---
 function selectSuggestion(name, lat, lon) {
   if (routeActive) return;
-
   if (activeInput === startInput) {
     start = [parseFloat(lat), parseFloat(lon)];
     startInput.value = name;
@@ -151,16 +152,12 @@ document.addEventListener('click', e => {
 // --- Click on Map to Set Destination ---
 map.on('click', async (e) => {
   if (routeActive) return;
-
   const { lat, lng } = e.latlng;
   dest = [lat, lng];
-
   const address = await reverseGeocode(lat, lng);
   endInput.value = address;
-
   if (destMarker) destMarker.setLatLng(dest).bindPopup("Destination").openPopup();
   else destMarker = L.marker(dest).addTo(map).bindPopup("Destination").openPopup();
-
   map.setView(dest, map.getZoom());
   box.innerHTML = '';
 });
@@ -168,7 +165,7 @@ map.on('click', async (e) => {
 // --- Use My Location ---
 document.getElementById('useLocationBtn').addEventListener('click', async () => {
   if (!navigator.geolocation) {
-    alert('Geolocation is not supported by your browser.');
+    showToast('Geolocation not supported by your browser.');
     return;
   }
   navigator.geolocation.getCurrentPosition(async pos => {
@@ -179,14 +176,14 @@ document.getElementById('useLocationBtn').addEventListener('click', async () => 
     else startMarker = L.marker(start).addTo(map).bindPopup("Start (Your location)").openPopup();
     map.setView(start, 16);
   }, () => {
-    alert('Unable to retrieve your location.');
+    showToast('Unable to retrieve your location.');
   });
 });
 
 // --- Routing ---
 document.getElementById('routeBtn').addEventListener('click', () => {
-  if (!start) return alert('Select a valid start location.');
-  if (!dest) return alert('Select a destination first.');
+  if (!start) return showToast('Set a start location first.');
+  if (!dest) return showToast('Set a destination first.');
   if (routeControl) map.removeControl(routeControl);
 
   routeControl = L.Routing.control({
@@ -195,48 +192,37 @@ document.getElementById('routeBtn').addEventListener('click', () => {
     routeWhileDragging: false,
     draggableWaypoints: false,
     showAlternatives: false,
-    lineOptions: { styles: [{ color: 'blue', weight: 4 }] }
+    lineOptions: { styles: [{ color: '#2563eb', weight: 4 }] }
   }).addTo(map);
 
   routeActive = true;
   document.getElementById('cancelRouteBtn').style.display = 'inline-block';
-
   showNearbyADAMarkers();
 });
 
 // --- Cancel Route ---
 document.getElementById('cancelRouteBtn').addEventListener('click', () => {
-  if (routeControl) {
-    map.removeControl(routeControl);
-    routeControl = null;
-  }
+  if (routeControl) { map.removeControl(routeControl); routeControl = null; }
   dest = null;
   routeActive = false;
   document.getElementById('cancelRouteBtn').style.display = 'none';
-
-  if (destMarker) {
-    map.removeLayer(destMarker);
-    destMarker = null;
-  }
-
+  if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
   endInput.value = '';
-  alert('Route canceled. You can now pick a new destination.');
+  showToast('Route cancelled. Pick a new destination.');
 });
 
 // --- Report Button ---
-document.getElementById('fab').addEventListener('click', () => {  window.location.href = 'html/ai.html';
+document.getElementById('fab').addEventListener('click', () => {
+  window.location.href = 'html/ai.html';
 });
 
 // --- Show Nearby ADA Markers (from Supabase) ---
 async function showNearbyADAMarkers() {
   if (!dest) return;
-
   const [lat, lng] = dest;
-
   try {
     const res = await fetch(`https://atharvcapricorn07-pathable.hf.space/markers?lat=${lat}&lng=${lng}&radius=804`);
     const markers = await res.json();
-
     markers.forEach(markerData => {
       const icon = L.divIcon({
         className: 'custom-marker-label',
@@ -244,9 +230,7 @@ async function showNearbyADAMarkers() {
         iconSize: [100, 40],
         iconAnchor: [50, 20]
       });
-
       const marker = L.marker([markerData.lat, markerData.lng], { icon }).addTo(map);
-
       marker.bindPopup(`
         <img src="${markerData.image_url}"
           style="width:150px; height:150px; object-fit:cover; border-radius:8px; display:block;"
@@ -254,7 +238,6 @@ async function showNearbyADAMarkers() {
         <div style="text-align:center; margin-top:6px; font-weight:bold;">${markerData.label}</div>
       `, { maxWidth: 170 });
     });
-
   } catch (e) {
     console.error('Failed to load ADA markers:', e);
   }
