@@ -4,8 +4,7 @@ let routeActive = false;
 let adaMarkers = [];
 
 const map = L.map('map').setView([0, 0], 13);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_matter_lite/{z}/{x}/{y}{r}.png', {  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-  subdomains: 'abcd',
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {  subdomains: 'abcd',
   maxZoom: 19
 }).addTo(map);
 
