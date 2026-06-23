@@ -125,7 +125,8 @@ html, body {
 
 #helpBtn {
   position: fixed;
-  top: 20px;
+
+  top: 85px;   /* moves it below search bar */
   left: 20px;
 
   background: white;
