@@ -3,8 +3,9 @@ let start = null, dest = null, routeControl;
 let routeActive = false;
 let adaMarkers = [];
 
-const map = L.map('map').setView([0, 0], 13);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {  subdomains: 'abcd',
+const map = L.map('map').setView([47.6062, -122.3321], 13); // Default: Seattle
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  subdomains: 'abcd',
   maxZoom: 19
 }).addTo(map);
 
@@ -50,6 +51,72 @@ async function geocode(q) {
   return res.json();
 }
 
+// --- Geolocation (Chrome-safe) ---
+// Chrome requires a user gesture before geolocation will prompt.
+// We show a banner on load; the actual getCurrentPosition fires only when the user taps "Allow".
+// Safari handles page-load geolocation fine — we detect it and skip the banner.
+
+function requestLocation() {
+  if (!navigator.geolocation) {
+    showToast('Geolocation not supported by your browser.');
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    async pos => {
+      hideBanner();
+      start = [pos.coords.latitude, pos.coords.longitude];
+      map.setView(start, 16);
+      const address = await reverseGeocode(...start);
+      startInput.value = address;
+      if (startMarker) startMarker.setLatLng(start).bindPopup("Start (Your location)").openPopup();
+      else startMarker = L.marker(start).addTo(map).bindPopup("Start (Your location)").openPopup();
+    },
+    err => {
+      hideBanner();
+      if (err.code === 1) {
+        // PERMISSION_DENIED
+        showToast('Location blocked. Enable it in browser settings and refresh.', 5000);
+      } else if (err.code === 2) {
+        showToast('Location unavailable. Try again.', 4000);
+      } else {
+        showToast('Location request timed out.', 4000);
+      }
+    },
+    { timeout: 10000, maximumAge: 60000 }
+  );
+}
+
+function hideBanner() {
+  const banner = document.getElementById('locationBanner');
+  if (banner) banner.classList.add('hidden');
+}
+
+// Check if we're on Safari — Safari on iOS prompts correctly on page load
+function isSafari() {
+  const ua = navigator.userAgent;
+  return /^((?!chrome|android).)*safari/i.test(ua);
+}
+
+// On page load: Safari gets auto-request, Chrome/others get the banner
+if (isSafari()) {
+  // Safari handles this fine without a gesture
+  requestLocation();
+} else {
+  // Show the banner — wait for user to tap Allow
+  // Banner is visible by default in HTML, just wire up the buttons
+  document.addEventListener('DOMContentLoaded', () => {
+    const banner = document.getElementById('locationBanner');
+    document.getElementById('locationBannerBtn').addEventListener('click', () => {
+      requestLocation();
+    });
+    document.getElementById('locationBannerDismiss').addEventListener('click', () => {
+      hideBanner();
+      // Fall back to Seattle if dismissed
+      map.setView([47.6062, -122.3321], 12);
+    });
+  });
+}
+
 // --- Elements ---
 const startInput = document.getElementById('startSearch');
 const endInput = document.getElementById('endSearch');
@@ -57,16 +124,6 @@ const box = document.getElementById('suggestions');
 const wrapper = box.parentNode;
 let lastSuggestions = [];
 let activeInput = null;
-
-// --- Geolocation Init ---
-navigator.geolocation.getCurrentPosition(async pos => {
-  start = [pos.coords.latitude, pos.coords.longitude];
-  map.setView(start, 16);
-  const address = await reverseGeocode(...start);
-  startInput.value = address;
-  if (startMarker) startMarker.setLatLng(start);
-  else startMarker = L.marker(start).addTo(map).bindPopup("Start (Your location)").openPopup();
-}, () => { map.setView([47.6, -122.3], 12); });
 
 // --- Typeahead ---
 [startInput, endInput].forEach(input => {
@@ -79,14 +136,14 @@ navigator.geolocation.getCurrentPosition(async pos => {
     catch { box.innerHTML = '<div class="suggestion">Network error</div>'; return; }
     if (!results.length) { box.innerHTML = '<div class="suggestion">No results</div>'; return; }
     if (start) {
-      results.sort((a,b) => {
+      results.sort((a, b) => {
         const da = haversine(start, [parseFloat(a.lat), parseFloat(a.lon)]);
         const db = haversine(start, [parseFloat(b.lat), parseFloat(b.lon)]);
         return da - db;
       });
     }
     lastSuggestions = results;
-    box.innerHTML = results.slice(0,5).map(r =>
+    box.innerHTML = results.slice(0, 5).map(r =>
       `<div class="suggestion" data-lat="${r.lat}" data-lon="${r.lon}">${r.display_name}</div>`
     ).join('');
   });
@@ -141,18 +198,12 @@ map.on('click', async (e) => {
   box.innerHTML = '';
 });
 
-document.getElementById('useLocationBtn').addEventListener('click', async () => {
-  if (!navigator.geolocation) { showToast('Geolocation not supported.'); return; }
-  navigator.geolocation.getCurrentPosition(async pos => {
-    start = [pos.coords.latitude, pos.coords.longitude];
-    const address = await reverseGeocode(...start);
-    startInput.value = address;
-    if (startMarker) startMarker.setLatLng(start).bindPopup("Start (Your location)").openPopup();
-    else startMarker = L.marker(start).addTo(map).bindPopup("Start (Your location)").openPopup();
-    map.setView(start, 16);
-  }, () => { showToast('Unable to retrieve your location.'); });
+// --- Use Location Button (always user-triggered, works on Chrome) ---
+document.getElementById('useLocationBtn').addEventListener('click', () => {
+  requestLocation();
 });
 
+// --- Routing ---
 document.getElementById('routeBtn').addEventListener('click', () => {
   if (!start) return showToast('Set a start location first.');
   if (!dest) return showToast('Set a destination first.');

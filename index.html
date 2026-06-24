@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <title>PathAble</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#0f8f83">
+  <meta name="theme-color" content="#0f8f83">
 </head>
+<body>
 
-<script>
+  <script>
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js");
     }
   </script>
-</body>
 
   <div id="navbar">
     <div class="input-group">
@@ -27,7 +27,7 @@
   </div>
 
   <div id="suggestions"></div>
-    <div id="map"></div>
+  <div id="map"></div>
 
   <button id="routeBtn">Get Directions</button>
   <button id="cancelRouteBtn" style="display:none;">Cancel Route</button>
@@ -37,6 +37,13 @@
   <a href="how-to-use.html">
     <button id="helpBtn">❓ How To Use</button>
   </a>
+
+  <!-- Location prompt banner (shown on page load instead of auto-requesting) -->
+  <div id="locationBanner">
+    <span>📍 Enable location for better routing</span>
+    <button id="locationBannerBtn">Allow</button>
+    <button id="locationBannerDismiss">✕</button>
+  </div>
 
   <div id="toast"></div>
 

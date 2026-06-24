@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from PIL import Image
 from transformers import CLIPProcessor, CLIPModel
 from supabase import create_client
-import torch, io, os, time
+import torch, io, os, time, math
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -16,6 +16,16 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 # CLIP model
 model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
 processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+DUPLICATE_RADIUS_METERS = 9  # ~30 feet
+
+def haversine_meters(lat1, lon1, lat2, lon2):
+    R = 6371000
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 @app.route("/")
 def index():
@@ -69,9 +79,29 @@ def save_marker():
     try:
         lat = float(request.form.get('lat'))
         lng = float(request.form.get('lng'))
-        label = request.form.get('label')
+        label = request.form.get('label', '').strip()
         file = request.files.get('image')
 
+        # --- Duplicate check ---
+        delta = 0.0001  # ~11m bounding box, wider than our 9m threshold
+        existing = (
+            supabase.table("ada_markers")
+            .select("id, label, lat, lng")
+            .gte("lat", lat - delta)
+            .lte("lat", lat + delta)
+            .gte("lng", lng - delta)
+            .lte("lng", lng + delta)
+            .execute()
+        )
+        for m in (existing.data or []):
+            dist = haversine_meters(lat, lng, float(m['lat']), float(m['lng']))
+            if dist <= DUPLICATE_RADIUS_METERS and m['label'] == label:
+                return jsonify({
+                    "error": f"A '{label}' marker already exists within 30 feet of this spot.",
+                    "duplicate": True
+                }), 409
+
+        # --- Image upload ---
         image_url = None
         if file:
             file_bytes = file.read()
@@ -86,6 +116,11 @@ def save_marker():
             if r.status_code in [200, 201]:
                 image_url = f"{SUPABASE_URL}/storage/v1/object/public/ada-images/{filename}"
 
+        # --- Guard: don't insert if image upload failed ---
+        if file and image_url is None:
+            return jsonify({"error": "Image upload failed. Marker not saved."}), 500
+
+        # --- Insert marker ---
         supabase.table("ada_markers").insert({
             "lat": lat,
             "lng": lng,
