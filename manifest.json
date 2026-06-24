@@ -1,15 +1,23 @@
 {
   "name": "PathAble",
   "short_name": "PathAble",
+  "description": "Accessible navigation for everyone",
   "start_url": "/index.html",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0f8f83",
+  "background_color": "#1a1a2e",
+  "theme_color": "#0d9488",
   "icons": [
     {
-      "src": "/icon.png",
+      "src": "/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
