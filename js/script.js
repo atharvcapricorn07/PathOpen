@@ -51,11 +51,7 @@ async function geocode(q) {
   return res.json();
 }
 
-// --- Geolocation (Chrome-safe) ---
-// Chrome requires a user gesture before geolocation will prompt.
-// We show a banner on load; the actual getCurrentPosition fires only when the user taps "Allow".
-// Safari handles page-load geolocation fine — we detect it and skip the banner.
-
+// --- Geolocation ---
 function requestLocation() {
   if (!navigator.geolocation) {
     showToast('Geolocation not supported by your browser.');
@@ -74,7 +70,6 @@ function requestLocation() {
     err => {
       hideBanner();
       if (err.code === 1) {
-        // PERMISSION_DENIED
         showToast('Location blocked. Enable it in browser settings and refresh.', 5000);
       } else if (err.code === 2) {
         showToast('Location unavailable. Try again.', 4000);
@@ -91,29 +86,38 @@ function hideBanner() {
   if (banner) banner.classList.add('hidden');
 }
 
-// Check if we're on Safari — Safari on iOS prompts correctly on page load
 function isSafari() {
   const ua = navigator.userAgent;
   return /^((?!chrome|android).)*safari/i.test(ua);
 }
 
-// On page load: Safari gets auto-request, Chrome/others get the banner
+// On page load: check permission state first.
+// - granted  → request silently, no banner
+// - prompt   → show banner (Chrome needs gesture before prompting)
+// - denied   → show banner so user sees the settings message
+// Safari doesn't support navigator.permissions reliably, so bypass it.
 if (isSafari()) {
-  // Safari handles this fine without a gesture
   requestLocation();
 } else {
-  // Show the banner — wait for user to tap Allow
-  // Banner is visible by default in HTML, just wire up the buttons
   document.addEventListener('DOMContentLoaded', () => {
-    const banner = document.getElementById('locationBanner');
     document.getElementById('locationBannerBtn').addEventListener('click', () => {
       requestLocation();
     });
     document.getElementById('locationBannerDismiss').addEventListener('click', () => {
       hideBanner();
-      // Fall back to Seattle if dismissed
       map.setView([47.6062, -122.3321], 12);
     });
+
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'geolocation' }).then(result => {
+        if (result.state === 'granted') {
+          // Already allowed — silently locate, hide banner
+          hideBanner();
+          requestLocation();
+        }
+        // 'prompt' or 'denied' — leave banner visible
+      });
+    }
   });
 }
 
