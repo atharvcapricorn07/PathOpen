@@ -164,7 +164,7 @@ def save_marker():
         image_url = None
         if file_bytes:
             filename = f"{label.replace(' ', '_')}_{int(abs(lat)*1000)}_{int(abs(lng)*1000)}_{int(time.time())}.jpg"
-            storage_url = f"{SUPABASE_URL}/storage/v1/object/ada_markers/{filename}"
+            storage_url = f"{SUPABASE_URL}/storage/v1/object/ada-images/{filename}"
             headers = {
                 "Authorization": f"Bearer {SUPABASE_KEY.strip()}",
                 "Content-Type": "image/jpeg"
@@ -172,11 +172,12 @@ def save_marker():
             r = req.post(storage_url, data=file_bytes, headers=headers)
             print(f"Storage status: {r.status_code}, response: {r.text}")
             if r.status_code in [200, 201]:
-                image_url = f"{SUPABASE_URL}/storage/v1/object/public/ada_markers/{filename}"
+                image_url = f"{SUPABASE_URL}/storage/v1/object/public/ada-images/{filename}"
+            else:
+                return jsonify({"error": f"Storage failed: {r.status_code} - {r.text}"}), 500
 
-        # --- Guard: don't insert if image upload failed ---
         if file_bytes and image_url is None:
-            return jsonify({"error": "Image upload failed. Marker not saved."}), 500
+            return jsonify({"error": "No image provided."}), 500
 
         # --- Insert marker (with embedding) ---
         supabase.table("ada_markers").insert({
