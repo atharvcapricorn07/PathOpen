@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="../css/ai.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    /* Duplicate confirmation modal */
     #dupModal {
       display: none;
       position: fixed;
@@ -57,8 +56,8 @@
       font-weight: 600;
       cursor: pointer;
     }
-    #dupYesBtn  { background: #e2e8f0; color: #2d3748; }
-    #dupNoBtn   { background: #0f8f83; color: white; }
+    #dupYesBtn { background: #e2e8f0; color: #2d3748; }
+    #dupNoBtn  { background: #0f8f83; color: white; }
     #dupYesBtn:hover { background: #cbd5e0; }
     #dupNoBtn:hover  { background: #0b6d63; }
   </style>
@@ -70,7 +69,6 @@
     <button class="home-button" onclick="location.href='../index.html'">← Back to Map</button>
   </div>
 
-  <!-- Duplicate confirmation modal -->
   <div id="dupModal">
     <div id="dupModalBox">
       <h3>Possible Duplicate</h3>
@@ -103,27 +101,21 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
+    const HF = "https://atharvcapricorn07-pathable.hf.space";
+
     let map;
     let markerRefs = [];
     let uploadedFile = null;
 
     const ADA_LABELS = [
-      "a staircase",
-      "a ramp",
-      "a wheelchair",
-      "an elevator",
-      "no ADA feature",
-      "a curb cut",
-      "a handrail",
-      "an accessible restroom",
-      "a tactile path",
-      "other"
+      "a staircase", "a ramp", "a wheelchair", "an elevator",
+      "no ADA feature", "a curb cut", "a handrail",
+      "an accessible restroom", "a tactile path", "other"
     ];
 
     document.getElementById("imageInput").addEventListener("change", async (event) => {
       const file = event.target.files[0];
       if (!file) return;
-
       uploadedFile = file;
 
       const reader = new FileReader();
@@ -139,24 +131,17 @@
       setStatus("Analyzing image...");
 
       try {
-        const res = await fetch("https://atharvcapricorn07-pathable.hf.space/analyze", {
-          method: "POST",
-          body: formData
-        });
+        const res = await fetch(`${HF}/analyze`, { method: "POST", body: formData });
         const result = await res.json();
 
-        // Filter out "no ADA feature" if any real feature was detected
         const realFeatures = Object.entries(result).filter(([label]) => label !== "no ADA feature");
-        const filtered = realFeatures.length > 0
-          ? Object.fromEntries(realFeatures)
-          : result;
+        const filtered = realFeatures.length > 0 ? Object.fromEntries(realFeatures) : result;
 
         if (Object.keys(filtered).length === 0) {
           setStatus("No accessibility features detected. You can add markers manually.");
         } else {
           setStatus("Analysis complete. Drag markers to adjust positions, then save.");
         }
-
         initMap(filtered);
       } catch (e) {
         console.error(e);
@@ -194,14 +179,12 @@
       markerRefs.forEach((m) => { if (m) m.leafletMarker.remove(); });
       markerRefs = [];
       document.getElementById("markerList").innerHTML = "";
-
       let offset = 0.0002;
       Object.entries(result).forEach(([label]) => {
         const latlng = [center[0], center[1] + offset];
         offset += 0.0003;
         addMarker(label, latlng);
       });
-
       document.getElementById("addMarkerBtn").style.display = "inline-block";
     }
 
@@ -218,7 +201,6 @@
         if (item === label) option.selected = true;
         select.appendChild(option);
       });
-
       if (!ADA_LABELS.includes(label)) {
         const option = document.createElement("option");
         option.value = label;
@@ -243,7 +225,6 @@
       });
 
       const leafletMarker = L.marker(latlng, { icon, draggable: true }).addTo(map);
-
       select.addEventListener("change", () => {
         leafletMarker.setIcon(L.divIcon({
           className: "custom-marker-label",
@@ -269,12 +250,12 @@
       addMarker("a ramp", [center.lat, center.lng]);
     });
 
-    // --- Duplicate modal helpers ---
+    // --- Duplicate modal ---
     let resolveDup = null;
 
     function showDupModal(existing) {
-      const img = document.getElementById('dupExistingImg');
-      const lbl = document.getElementById('dupExistingLabel');
+      const img  = document.getElementById('dupExistingImg');
+      const lbl  = document.getElementById('dupExistingLabel');
       const desc = document.getElementById('dupModalDesc');
 
       if (existing.image_url) {
@@ -283,9 +264,8 @@
       } else {
         img.style.display = 'none';
       }
-      lbl.textContent = existing.label || 'Unknown feature';
+      lbl.textContent  = existing.label || 'Unknown feature';
       desc.textContent = `A similar tag (${existing.distance_m}m away) already exists. Is this the same thing?`;
-
       document.getElementById('dupModal').classList.add('open');
 
       return new Promise(resolve => { resolveDup = resolve; });
@@ -293,48 +273,46 @@
 
     function hideDupModal() {
       document.getElementById('dupModal').classList.remove('open');
-      resolveDup = null;
     }
 
     document.getElementById('dupYesBtn').addEventListener('click', () => {
       hideDupModal();
-      if (resolveDup) resolveDup('skip');
+      const resolve = resolveDup;
+      resolveDup = null;
+      if (resolve) resolve('skip');
     });
+
     document.getElementById('dupNoBtn').addEventListener('click', () => {
       hideDupModal();
-      if (resolveDup) resolveDup('save');
+      const resolve = resolveDup;
+      resolveDup = null;
+      if (resolve) resolve('save');
     });
 
+    // --- Save ---
     document.getElementById("saveButton").addEventListener("click", async () => {
-      const active = markerRefs.filter((m) => m !== null);
-
-      if (active.length === 0) {
-        alert("No markers to save. Upload an image first.");
-        return;
-      }
-      if (!uploadedFile) {
-        alert("Please upload an image.");
-        return;
-      }
+      const active = markerRefs.filter(m => m !== null);
+      if (active.length === 0) { alert("No markers to save. Upload an image first."); return; }
+      if (!uploadedFile)       { alert("Please upload an image."); return; }
 
       setStatus("Saving markers...");
-      let savedCount = 0;
-      let skippedCount = 0;
-      let errorCount = 0;
+      let savedCount = 0, skippedCount = 0, errorCount = 0;
 
       for (const ref of active) {
         const latlng = ref.leafletMarker.getLatLng();
-        const formData = new FormData();
-        formData.append("lat", latlng.lat);
-        formData.append("lng", latlng.lng);
-        formData.append("label", ref.select.value);
-        formData.append("image", uploadedFile);
+
+        const buildForm = (force) => {
+          const fd = new FormData();
+          fd.append("lat",   latlng.lat);
+          fd.append("lng",   latlng.lng);
+          fd.append("label", ref.select.value);
+          fd.append("image", uploadedFile);
+          if (force) fd.append("force", "1");
+          return fd;
+        };
 
         try {
-          const res = await fetch("https://atharvcapricorn07-pathable.hf.space/save-marker", {
-            method: "POST",
-            body: formData
-          });
+          const res = await fetch(`${HF}/save-marker`, { method: "POST", body: buildForm(false) });
 
           if (res.status === 409) {
             const data = await res.json();
@@ -344,25 +322,13 @@
             if (choice === 'skip') {
               skippedCount++;
             } else {
-              // User says it's NOT the same — force-save by re-submitting with a bypass flag
-              // We do this by deleting the nearby marker and saving the new one
-              // Simpler: just POST to a force-save endpoint variant
-              const fd2 = new FormData();
-              fd2.append("lat", latlng.lat);
-              fd2.append("lng", latlng.lng);
-              fd2.append("label", ref.select.value);
-              fd2.append("image", uploadedFile);
-              fd2.append("force", "1");
-              const res2 = await fetch("https://atharvcapricorn07-pathable.hf.space/save-marker", {
-                method: "POST",
-                body: fd2
-              });
+              const res2 = await fetch(`${HF}/save-marker`, { method: "POST", body: buildForm(true) });
               if (res2.ok) savedCount++;
               else { errorCount++; console.error('Force save failed:', res2.status); }
             }
           } else if (!res.ok) {
             errorCount++;
-            console.error(`Save failed for marker "${ref.select.value}":`, res.status);
+            console.error(`Save failed for "${ref.select.value}":`, res.status);
           } else {
             savedCount++;
           }
@@ -373,9 +339,9 @@
       }
 
       const parts = [];
-      if (savedCount > 0) parts.push(`${savedCount} marker${savedCount > 1 ? 's' : ''} saved`);
+      if (savedCount   > 0) parts.push(`${savedCount} marker${savedCount > 1 ? 's' : ''} saved`);
       if (skippedCount > 0) parts.push(`${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped`);
-      if (errorCount > 0) parts.push(`${errorCount} failed`);
+      if (errorCount   > 0) parts.push(`${errorCount} failed`);
 
       if (errorCount > 0 && savedCount === 0 && skippedCount === 0) {
         setStatus("Error saving markers. Please try again.");
@@ -385,8 +351,8 @@
       }
     });
 
-    function setStatus(message) {
-      document.getElementById("status").textContent = message;
+    function setStatus(msg) {
+      document.getElementById("status").textContent = msg;
     }
   </script>
 

@@ -42,18 +42,17 @@ function haversine([lat1, lon1], [lat2, lon2]) {
 async function reverseGeocode(lat, lon) {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&email=atharv.capricorn@gmail.com`,
-      { headers: { 'Accept-Language': 'en' } }
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
+      { headers: { 'Accept-Language': 'en', 'User-Agent': 'PathAble/1.0' } }
     );
-    if (!res.ok) return '';
     const data = await res.json();
     return data.display_name || '';
-  } catch (e) { console.error('reverseGeocode error:', e); return ''; }
+  } catch { return ''; }
 }
 
 // --- Geocode with location bias ---
 async function geocode(q) {
-  let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&limit=10&email=atharv.capricorn@gmail.com`;
+  let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&limit=10`;
 
   if (start) {
     const [lat, lon] = start;
@@ -62,9 +61,9 @@ async function geocode(q) {
   }
 
   const res = await fetch(url, {
-    headers: { 'Accept-Language': 'en' }
+    headers: { 'Accept-Language': 'en', 'User-Agent': 'PathAble/1.0' }
   });
-  if (!res.ok) throw new Error(`Geocode failed: ${res.status}`);
+  if (!res.ok) throw new Error('Failed geocode');
   return res.json();
 }
 
@@ -94,7 +93,7 @@ function requestLocation() {
         showToast('Location request timed out.', 4000);
       }
     },
-    { timeout: 10000, maximumAge: 60000 }
+    { timeout: 10000, maximumAge: 0 }  // maximumAge:0 forces a fresh position every time
   );
 }
 
@@ -130,6 +129,18 @@ if (isSafari()) {
     }
   });
 }
+
+// Re-populate start address whenever the page becomes visible again
+// (handles Chrome back-navigation and hard refresh clearing the field)
+window.addEventListener('pageshow', () => {
+  if (navigator.permissions) {
+    navigator.permissions.query({ name: 'geolocation' }).then(result => {
+      if (result.state === 'granted' && !startInput.value) {
+        requestLocation();
+      }
+    });
+  }
+});
 
 // --- Typeahead ---
 [startInput, endInput].forEach(input => {
