@@ -42,7 +42,7 @@ function haversine([lat1, lon1], [lat2, lon2]) {
 async function reverseGeocode(lat, lon) {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&email=pathable-app@example.com`,
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&email=atharv.capricorn@gmail.com`,
       { headers: { 'Accept-Language': 'en' } }
     );
     if (!res.ok) return '';
@@ -53,7 +53,7 @@ async function reverseGeocode(lat, lon) {
 
 // --- Geocode with location bias ---
 async function geocode(q) {
-  let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&limit=10&email=pathable-app@example.com`;
+  let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&limit=10&email=atharv.capricorn@gmail.com`;
 
   if (start) {
     const [lat, lon] = start;
