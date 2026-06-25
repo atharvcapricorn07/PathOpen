@@ -17,8 +17,9 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
 processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
-DUPLICATE_RADIUS_METERS = 9      # ~30 feet distance threshold
-SIMILARITY_THRESHOLD    = 0.85   # cosine similarity threshold for "same photo"
+DUPLICATE_RADIUS_METERS = 15     # ~50 feet distance threshold
+SIMILARITY_THRESHOLD    = 0.82   # cosine similarity threshold for "same photo"
+ABSOLUTE_BLOCK_METERS   = 5      # within ~16ft, always flag as potential duplicate
 
 def haversine_meters(lat1, lon1, lat2, lon2):
     R = 6371000
@@ -29,13 +30,23 @@ def haversine_meters(lat1, lon1, lat2, lon2):
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 def get_image_embedding(image: Image.Image) -> list:
-    """Run CLIP vision encoder and return a normalized 512-d embedding as a plain list."""
-    inputs = processor(images=image, return_tensors="pt")
-    with torch.no_grad():
-        features = model.get_image_features(**inputs)
-    # L2-normalize so cosine similarity == dot product
-    features = features / features.norm(dim=-1, keepdim=True)
-    return features[0].tolist()
+    """Run CLIP vision encoder on full image + bottom-half crop, return best normalized 512-d embedding."""
+    # Bottom-half crop — stairs/ramps are almost always at ground level
+    w, h = image.size
+    bottom_half = image.crop((0, h // 2, w, h))
+
+    embeddings = []
+    for img in [image, bottom_half]:
+        inputs = processor(images=img, return_tensors="pt")
+        with torch.no_grad():
+            features = model.get_image_features(**inputs)
+        features = features / features.norm(dim=-1, keepdim=True)
+        embeddings.append(features[0])
+
+    # Average the two embeddings and re-normalize
+    avg = (embeddings[0] + embeddings[1]) / 2
+    avg = avg / avg.norm()
+    return avg.tolist()
 
 def cosine_similarity(a: list, b: list) -> float:
     dot = sum(x * y for x, y in zip(a, b))
@@ -55,7 +66,10 @@ def analyze_image():
     file = request.files['image']
     image = Image.open(io.BytesIO(file.read())).convert("RGB")
 
-    # Improved prompts — more descriptive = better zero-shot accuracy with CLIP
+    # Bottom-half crop — ground-level features (stairs, ramps) appear here
+    w, h = image.size
+    bottom_half = image.crop((0, h // 2, w, h))
+
     texts = [
         "a flight of stairs with steps going up or down",
         "a wheelchair ramp or sloped accessible path",
@@ -63,11 +77,7 @@ def analyze_image():
         "an elevator or lift door",
         "no accessibility feature, just a regular scene"
     ]
-    inputs = processor(text=texts, images=image, return_tensors="pt", padding=True)
-    outputs = model(**inputs)
-    probs = outputs.logits_per_image.softmax(dim=1)[0].tolist()
 
-    # Map back to short labels for the frontend
     label_map = {
         "a flight of stairs with steps going up or down": "a staircase",
         "a wheelchair ramp or sloped accessible path": "a ramp",
@@ -76,13 +86,19 @@ def analyze_image():
         "no accessibility feature, just a regular scene": "no ADA feature"
     }
 
-    confidence = {
-        label_map[t]: round(p, 4)
-        for t, p in zip(texts, probs)
-        if p >= 0.10
-    }
+    # Run on full image and bottom half, take the max confidence for each label
+    confidence = {}
+    for img in [image, bottom_half]:
+        inputs = processor(text=texts, images=img, return_tensors="pt", padding=True)
+        outputs = model(**inputs)
+        probs = outputs.logits_per_image.softmax(dim=1)[0].tolist()
+        for t, p in zip(texts, probs):
+            short = label_map[t]
+            confidence[short] = max(confidence.get(short, 0), round(p, 4))
 
-    return jsonify(confidence)
+    # Only return labels above threshold
+    result = {k: v for k, v in confidence.items() if v >= 0.10}
+    return jsonify(result)
 
 @app.route("/debug")
 def debug():
@@ -114,6 +130,7 @@ def save_marker():
         lng   = float(request.form.get('lng'))
         label = request.form.get('label', '').strip()
         file  = request.files.get('image')
+        force = request.form.get('force', '0') == '1'  # user confirmed it's NOT a duplicate
 
         # --- Read and decode image once (needed for both embedding + upload) ---
         image = None
@@ -125,40 +142,66 @@ def save_marker():
         # --- Compute embedding for the incoming photo ---
         new_embedding = get_image_embedding(image) if image else None
 
-        # --- Duplicate check ---
-        # Step 1: cheap bounding-box query to get nearby candidates
-        delta = 0.0001  # ~11m, safely wider than our 9m threshold
-        existing = (
-            supabase.table("ada_markers")
-            .select("id, label, lat, lng, embedding")
-            .gte("lat", lat - delta)
-            .lte("lat", lat + delta)
-            .gte("lng", lng - delta)
-            .lte("lng", lng + delta)
-            .execute()
-        )
+        # --- Duplicate check (skipped if user force-confirmed it's different) ---
+        if not force:
+            delta = 0.0002  # ~22m, safely wider than our radius
+            existing = (
+                supabase.table("ada_markers")
+                .select("id, label, lat, lng, embedding, image_url")
+                .gte("lat", lat - delta)
+                .lte("lat", lat + delta)
+                .gte("lng", lng - delta)
+                .lte("lng", lng + delta)
+                .execute()
+            )
 
-        for m in (existing.data or []):
-            dist = haversine_meters(lat, lng, float(m['lat']), float(m['lng']))
-            if dist > DUPLICATE_RADIUS_METERS:
-                continue  # outside 30ft radius, skip
+            for m in (existing.data or []):
+                dist = haversine_meters(lat, lng, float(m['lat']), float(m['lng']))
 
-            # Step 2: if within range, compare embeddings
-            existing_embedding = m.get('embedding')
-            if new_embedding and existing_embedding:
-                sim = cosine_similarity(new_embedding, existing_embedding)
-                if sim >= SIMILARITY_THRESHOLD:
+                # Absolute catch-all: within 5m always flag regardless of label/embedding
+                if dist <= ABSOLUTE_BLOCK_METERS:
                     return jsonify({
-                        "error": "A very similar photo has already been uploaded for this location.",
-                        "duplicate": True
+                        "error": "A marker already exists within 16 feet of this exact spot.",
+                        "duplicate": True,
+                        "existing": {
+                            "id": m["id"],
+                            "label": m["label"],
+                            "image_url": m.get("image_url"),
+                            "distance_m": round(dist, 1)
+                        }
                     }), 409
-            else:
-                # No embedding to compare — fall back to label match
-                if m['label'] == label:
-                    return jsonify({
-                        "error": f"A '{label}' marker already exists within 30 feet of this spot.",
-                        "duplicate": True
-                    }), 409
+
+                if dist > DUPLICATE_RADIUS_METERS:
+                    continue
+
+                # Step 2: embedding similarity check within radius
+                existing_embedding = m.get('embedding')
+                if new_embedding and existing_embedding:
+                    sim = cosine_similarity(new_embedding, existing_embedding)
+                    if sim >= SIMILARITY_THRESHOLD:
+                        return jsonify({
+                            "error": "A very similar photo already exists nearby.",
+                            "duplicate": True,
+                            "existing": {
+                                "id": m["id"],
+                                "label": m["label"],
+                                "image_url": m.get("image_url"),
+                                "distance_m": round(dist, 1)
+                            }
+                        }), 409
+                else:
+                    # No embedding — fall back to label match within radius
+                    if m['label'] == label:
+                        return jsonify({
+                            "error": f"A '{label}' marker already exists nearby.",
+                            "duplicate": True,
+                            "existing": {
+                                "id": m["id"],
+                                "label": m["label"],
+                                "image_url": m.get("image_url"),
+                                "distance_m": round(dist, 1)
+                            }
+                        }), 409
 
         # --- Image upload ---
         image_url = None

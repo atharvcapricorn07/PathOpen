@@ -42,17 +42,18 @@ function haversine([lat1, lon1], [lat2, lon2]) {
 async function reverseGeocode(lat, lon) {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
-      { headers: { 'Accept-Language': 'en', 'User-Agent': 'PathAble/1.0' } }
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&email=pathable-app@example.com`,
+      { headers: { 'Accept-Language': 'en' } }
     );
+    if (!res.ok) return '';
     const data = await res.json();
     return data.display_name || '';
-  } catch { return ''; }
+  } catch (e) { console.error('reverseGeocode error:', e); return ''; }
 }
 
 // --- Geocode with location bias ---
 async function geocode(q) {
-  let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&limit=10`;
+  let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&limit=10&email=pathable-app@example.com`;
 
   if (start) {
     const [lat, lon] = start;
@@ -61,9 +62,9 @@ async function geocode(q) {
   }
 
   const res = await fetch(url, {
-    headers: { 'Accept-Language': 'en', 'User-Agent': 'PathAble/1.0' }
+    headers: { 'Accept-Language': 'en' }
   });
-  if (!res.ok) throw new Error('Failed geocode');
+  if (!res.ok) throw new Error(`Geocode failed: ${res.status}`);
   return res.json();
 }
 

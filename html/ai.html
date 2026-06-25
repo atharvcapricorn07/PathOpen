@@ -6,12 +6,82 @@
   <title>PathAble AI Accessibility Scanner</title>
   <link rel="stylesheet" href="../css/ai.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    /* Duplicate confirmation modal */
+    #dupModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+    }
+    #dupModal.open { display: flex; }
+    #dupModalBox {
+      background: white;
+      border-radius: 20px;
+      padding: 28px 24px;
+      max-width: 360px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      text-align: center;
+    }
+    #dupModalBox h3 { margin: 0 0 6px; font-size: 1.1rem; color: #1a202c; }
+    #dupModalBox p  { margin: 0 0 16px; font-size: 0.9rem; color: #4a5568; line-height: 1.4; }
+    #dupExistingImg {
+      width: 100%;
+      max-height: 180px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      display: none;
+    }
+    #dupExistingLabel {
+      display: inline-block;
+      background: #0f8f83;
+      color: white;
+      padding: 5px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+    .dup-btn-row { display: flex; gap: 10px; }
+    .dup-btn-row button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #dupYesBtn  { background: #e2e8f0; color: #2d3748; }
+    #dupNoBtn   { background: #0f8f83; color: white; }
+    #dupYesBtn:hover { background: #cbd5e0; }
+    #dupNoBtn:hover  { background: #0b6d63; }
+  </style>
 </head>
 
 <body>
 
   <div class="home-button-wrapper">
     <button class="home-button" onclick="location.href='../index.html'">← Back to Map</button>
+  </div>
+
+  <!-- Duplicate confirmation modal -->
+  <div id="dupModal">
+    <div id="dupModalBox">
+      <h3>Possible Duplicate</h3>
+      <p id="dupModalDesc">A similar tag already exists nearby. Is this the same thing?</p>
+      <img id="dupExistingImg" alt="Existing marker photo" />
+      <div id="dupExistingLabel"></div>
+      <div class="dup-btn-row">
+        <button id="dupYesBtn">Yes, same thing — skip</button>
+        <button id="dupNoBtn">No, save mine anyway</button>
+      </div>
+    </div>
   </div>
 
   <div class="container">
@@ -199,6 +269,42 @@
       addMarker("a ramp", [center.lat, center.lng]);
     });
 
+    // --- Duplicate modal helpers ---
+    let resolveDup = null;
+
+    function showDupModal(existing) {
+      const img = document.getElementById('dupExistingImg');
+      const lbl = document.getElementById('dupExistingLabel');
+      const desc = document.getElementById('dupModalDesc');
+
+      if (existing.image_url) {
+        img.src = existing.image_url;
+        img.style.display = 'block';
+      } else {
+        img.style.display = 'none';
+      }
+      lbl.textContent = existing.label || 'Unknown feature';
+      desc.textContent = `A similar tag (${existing.distance_m}m away) already exists. Is this the same thing?`;
+
+      document.getElementById('dupModal').classList.add('open');
+
+      return new Promise(resolve => { resolveDup = resolve; });
+    }
+
+    function hideDupModal() {
+      document.getElementById('dupModal').classList.remove('open');
+      resolveDup = null;
+    }
+
+    document.getElementById('dupYesBtn').addEventListener('click', () => {
+      hideDupModal();
+      if (resolveDup) resolveDup('skip');
+    });
+    document.getElementById('dupNoBtn').addEventListener('click', () => {
+      hideDupModal();
+      if (resolveDup) resolveDup('save');
+    });
+
     document.getElementById("saveButton").addEventListener("click", async () => {
       const active = markerRefs.filter((m) => m !== null);
 
@@ -231,8 +337,29 @@
           });
 
           if (res.status === 409) {
-            // Duplicate — skip silently and count it
-            skippedCount++;
+            const data = await res.json();
+            const existing = data.existing || { label: ref.select.value, distance_m: '?', image_url: null };
+            const choice = await showDupModal(existing);
+
+            if (choice === 'skip') {
+              skippedCount++;
+            } else {
+              // User says it's NOT the same — force-save by re-submitting with a bypass flag
+              // We do this by deleting the nearby marker and saving the new one
+              // Simpler: just POST to a force-save endpoint variant
+              const fd2 = new FormData();
+              fd2.append("lat", latlng.lat);
+              fd2.append("lng", latlng.lng);
+              fd2.append("label", ref.select.value);
+              fd2.append("image", uploadedFile);
+              fd2.append("force", "1");
+              const res2 = await fetch("https://atharvcapricorn07-pathable.hf.space/save-marker", {
+                method: "POST",
+                body: fd2
+              });
+              if (res2.ok) savedCount++;
+              else { errorCount++; console.error('Force save failed:', res2.status); }
+            }
           } else if (!res.ok) {
             errorCount++;
             console.error(`Save failed for marker "${ref.select.value}":`, res.status);
@@ -245,7 +372,6 @@
         }
       }
 
-      // Build a clear status message
       const parts = [];
       if (savedCount > 0) parts.push(`${savedCount} marker${savedCount > 1 ? 's' : ''} saved`);
       if (skippedCount > 0) parts.push(`${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped`);
