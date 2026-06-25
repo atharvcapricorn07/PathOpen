@@ -3,7 +3,15 @@ let start = null, dest = null, routeControl;
 let routeActive = false;
 let adaMarkers = [];
 
-const map = L.map('map').setView([47.6062, -122.3321], 13); // Default: Seattle
+// --- Elements (declared first so geolocation callback can reference them) ---
+const startInput = document.getElementById('startSearch');
+const endInput = document.getElementById('endSearch');
+const box = document.getElementById('suggestions');
+const wrapper = box.parentNode;
+let lastSuggestions = [];
+let activeInput = null;
+
+const map = L.map('map').setView([47.6062, -122.3321], 13);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
   subdomains: 'abcd',
   maxZoom: 19
@@ -35,7 +43,7 @@ async function reverseGeocode(lat, lon) {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
-      { headers: { 'Accept-Language': 'en' } }
+      { headers: { 'Accept-Language': 'en', 'User-Agent': 'PathAble/1.0' } }
     );
     const data = await res.json();
     return data.display_name || '';
@@ -43,19 +51,18 @@ async function reverseGeocode(lat, lon) {
 }
 
 // --- Geocode with location bias ---
-// Passes a viewbox around the user's current location so Nominatim
-// returns nearby results first instead of globally "important" ones.
 async function geocode(q) {
   let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&limit=10`;
 
   if (start) {
     const [lat, lon] = start;
-    const delta = 0.5; // ~35 mile box — wide enough for suburbs, tight enough to beat other continents
+    const delta = 0.5;
     url += `&viewbox=${lon - delta},${lat + delta},${lon + delta},${lat - delta}&bounded=0`;
-    // bounded=0 means: prefer results inside the box but still fall back outside if nothing matches
   }
 
-  const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+  const res = await fetch(url, {
+    headers: { 'Accept-Language': 'en', 'User-Agent': 'PathAble/1.0' }
+  });
   if (!res.ok) throw new Error('Failed geocode');
   return res.json();
 }
@@ -123,14 +130,6 @@ if (isSafari()) {
   });
 }
 
-// --- Elements ---
-const startInput = document.getElementById('startSearch');
-const endInput = document.getElementById('endSearch');
-const box = document.getElementById('suggestions');
-const wrapper = box.parentNode;
-let lastSuggestions = [];
-let activeInput = null;
-
 // --- Typeahead ---
 [startInput, endInput].forEach(input => {
   input.addEventListener('input', async () => {
@@ -142,8 +141,6 @@ let activeInput = null;
     catch { box.innerHTML = '<div class="suggestion">Network error</div>'; return; }
     if (!results.length) { box.innerHTML = '<div class="suggestion">No results</div>'; return; }
 
-    // Sort by distance from start as a secondary sort
-    // (Nominatim viewbox already does most of the work, this just fine-tunes ordering)
     if (start) {
       results.sort((a, b) => {
         const da = haversine(start, [parseFloat(a.lat), parseFloat(a.lon)]);

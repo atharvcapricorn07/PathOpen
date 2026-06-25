@@ -4,65 +4,30 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PathAble AI Accessibility Scanner</title>
-
   <link rel="stylesheet" href="../css/ai.css" />
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 
 <body>
 
   <div class="home-button-wrapper">
-    <button
-      class="home-button"
-      onclick="location.href='../index.html'"
-    >
-      ← Back to Map
-    </button>
+    <button class="home-button" onclick="location.href='../index.html'">← Back to Map</button>
   </div>
 
   <div class="container">
-
     <h1>ADA Accessibility Scanner</h1>
+    <p class="subtitle">Upload a photo, review detected accessibility features, adjust marker locations, and save them to the map.</p>
 
-    <p class="subtitle">
-      Upload a photo, review detected accessibility features,
-      adjust marker locations, and save them to the map.
-    </p>
-
-    <input
-      type="file"
-      id="imageInput"
-      accept="image/*"
-    />
-
-    <img
-      id="preview"
-      alt="Uploaded Preview"
-      style="display:none;"
-    />
-
+    <input type="file" id="imageInput" accept="image/*" />
+    <img id="preview" alt="Uploaded Preview" style="display:none;" />
     <div id="map"></div>
 
     <h3>Detected Features</h3>
-
     <div id="markerList"></div>
 
-    <button
-      id="addMarkerBtn"
-      style="display:none;"
-    >
-      + Add Feature Marker
-    </button>
-
+    <button id="addMarkerBtn" style="display:none;">+ Add Feature Marker</button>
     <div id="status"></div>
-
-    <button id="saveButton">
-      Save and Return
-    </button>
-
+    <button id="saveButton">Save and Return</button>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -85,361 +50,217 @@
       "other"
     ];
 
-    document
-      .getElementById("imageInput")
-      .addEventListener("change", async (event) => {
+    document.getElementById("imageInput").addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
 
-        const file = event.target.files[0];
-        if (!file) return;
+      uploadedFile = file;
 
-        uploadedFile = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const preview = document.getElementById("preview");
+        preview.src = e.target.result;
+        preview.style.display = "block";
+      };
+      reader.readAsDataURL(file);
 
-        const reader = new FileReader();
+      const formData = new FormData();
+      formData.append("image", file);
+      setStatus("Analyzing image...");
 
-        reader.onload = (e) => {
-          const preview = document.getElementById("preview");
-          preview.src = e.target.result;
-          preview.style.display = "block";
-        };
+      try {
+        const res = await fetch("https://atharvcapricorn07-pathable.hf.space/analyze", {
+          method: "POST",
+          body: formData
+        });
+        const result = await res.json();
 
-        reader.readAsDataURL(file);
+        // Filter out "no ADA feature" if any real feature was detected
+        const realFeatures = Object.entries(result).filter(([label]) => label !== "no ADA feature");
+        const filtered = realFeatures.length > 0
+          ? Object.fromEntries(realFeatures)
+          : result;
 
-        const formData = new FormData();
-        formData.append("image", file);
-
-        setStatus("Analyzing image...");
-
-        try {
-          const res = await fetch(
-            "https://atharvcapricorn07-pathable.hf.space/analyze",
-            {
-              method: "POST",
-              body: formData
-            }
-          );
-
-          const result = await res.json();
-
-          setStatus(
-            "Analysis complete. Drag markers, adjust labels, then save."
-          );
-
-          initMap(result);
-
-        } catch (e) {
-          console.error(e);
-          setStatus(
-            "Error analyzing image. Please try again."
-          );
+        if (Object.keys(filtered).length === 0) {
+          setStatus("No accessibility features detected. You can add markers manually.");
+        } else {
+          setStatus("Analysis complete. Drag markers to adjust positions, then save.");
         }
-      });
+
+        initMap(filtered);
+      } catch (e) {
+        console.error(e);
+        setStatus("Error analyzing image. Please try again.");
+      }
+    });
 
     function initMap(result) {
-
-  if (!map) {
-
-    navigator.geolocation.getCurrentPosition(
-
-      (pos) => {
-
-        const center = [
-          pos.coords.latitude,
-          pos.coords.longitude
-        ];
-
-        map = L.map("map").setView(center, 16);
-
-        L.tileLayer(
-          'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-          {
-            subdomains: 'abcd',
-            maxZoom: 19
+      if (!map) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const center = [pos.coords.latitude, pos.coords.longitude];
+            map = L.map("map").setView(center, 16);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+              subdomains: 'abcd', maxZoom: 19
+            }).addTo(map);
+            placeMarkers(result, center);
+          },
+          () => {
+            const center = [47.6062, -122.3321];
+            map = L.map("map").setView(center, 16);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+              subdomains: 'abcd', maxZoom: 19
+            }).addTo(map);
+            placeMarkers(result, center);
           }
-        ).addTo(map);
-
-        placeMarkers(result, center);
-      },
-
-      () => {
-
-        const center = [
-          47.6062,
-          -122.3321
-        ];
-
-        map = L.map("map").setView(center, 16);
-
-        L.tileLayer(
-          'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-          {
-            subdomains: 'abcd',
-            maxZoom: 19
-          }
-        ).addTo(map);
-
-        placeMarkers(result, center);
+        );
+      } else {
+        const center = map.getCenter();
+        placeMarkers(result, [center.lat, center.lng]);
       }
-    );
-
-  } else {
-
-    const center = map.getCenter();
-
-    placeMarkers(
-      result,
-      [center.lat, center.lng]
-    );
-  }
-}
+    }
 
     function placeMarkers(result, center) {
-
-      markerRefs.forEach((m) => {
-        if (m) m.leafletMarker.remove();
-      });
-
+      markerRefs.forEach((m) => { if (m) m.leafletMarker.remove(); });
       markerRefs = [];
-
-      document.getElementById(
-        "markerList"
-      ).innerHTML = "";
+      document.getElementById("markerList").innerHTML = "";
 
       let offset = 0.0002;
+      Object.entries(result).forEach(([label]) => {
+        const latlng = [center[0], center[1] + offset];
+        offset += 0.0003;
+        addMarker(label, latlng);
+      });
 
-      Object.entries(result).forEach(
-        ([label]) => {
-
-          const latlng = [
-            center[0],
-            center[1] + offset
-          ];
-
-          offset += 0.0003;
-
-          addMarker(label, latlng);
-        }
-      );
-
-      document.getElementById(
-        "addMarkerBtn"
-      ).style.display = "inline-block";
+      document.getElementById("addMarkerBtn").style.display = "inline-block";
     }
 
     function addMarker(label, latlng) {
-
       const index = markerRefs.length;
-
       const row = document.createElement("div");
       row.className = "marker-row";
 
       const select = document.createElement("select");
-
       ADA_LABELS.forEach((item) => {
-
-        const option =
-          document.createElement("option");
-
+        const option = document.createElement("option");
         option.value = item;
         option.textContent = item;
-
-        if (item === label) {
-          option.selected = true;
-        }
-
+        if (item === label) option.selected = true;
         select.appendChild(option);
       });
 
       if (!ADA_LABELS.includes(label)) {
-
-        const option =
-          document.createElement("option");
-
+        const option = document.createElement("option");
         option.value = label;
         option.textContent = label;
         option.selected = true;
-
         select.appendChild(option);
       }
 
-      const deleteBtn =
-        document.createElement("button");
-
+      const deleteBtn = document.createElement("button");
       deleteBtn.textContent = "✕";
-
-      deleteBtn.addEventListener(
-        "click",
-        () => removeMarker(index)
-      );
+      deleteBtn.addEventListener("click", () => removeMarker(index));
 
       row.appendChild(select);
       row.appendChild(deleteBtn);
-
-      document
-        .getElementById("markerList")
-        .appendChild(row);
+      document.getElementById("markerList").appendChild(row);
 
       const icon = L.divIcon({
         className: "custom-marker-label",
-        html: `
-          <div class="marker-label">
-            ${label}
-          </div>
-        `,
+        html: `<div class="marker-label">${label}</div>`,
         iconSize: [160, 40],
         iconAnchor: [80, 20]
       });
 
-      const leafletMarker = L.marker(
-        latlng,
-        {
-          icon,
-          draggable: true
-        }
-      ).addTo(map);
+      const leafletMarker = L.marker(latlng, { icon, draggable: true }).addTo(map);
 
-      select.addEventListener(
-        "change",
-        () => {
-
-          leafletMarker.setIcon(
-            L.divIcon({
-              className:
-                "custom-marker-label",
-              html: `
-                <div class="marker-label">
-                  ${select.value}
-                </div>
-              `,
-              iconSize: [160, 40],
-              iconAnchor: [80, 20]
-            })
-          );
-        }
-      );
-
-      markerRefs.push({
-        leafletMarker,
-        row,
-        select
+      select.addEventListener("change", () => {
+        leafletMarker.setIcon(L.divIcon({
+          className: "custom-marker-label",
+          html: `<div class="marker-label">${select.value}</div>`,
+          iconSize: [160, 40],
+          iconAnchor: [80, 20]
+        }));
       });
+
+      markerRefs.push({ leafletMarker, row, select });
     }
 
     function removeMarker(index) {
-
       if (!markerRefs[index]) return;
-
-      markerRefs[index]
-        .leafletMarker
-        .remove();
-
-      markerRefs[index]
-        .row
-        .remove();
-
+      markerRefs[index].leafletMarker.remove();
+      markerRefs[index].row.remove();
       markerRefs[index] = null;
     }
 
-    document
-      .getElementById("addMarkerBtn")
-      .addEventListener("click", () => {
+    document.getElementById("addMarkerBtn").addEventListener("click", () => {
+      if (!map) return;
+      const center = map.getCenter();
+      addMarker("a ramp", [center.lat, center.lng]);
+    });
 
-        if (!map) return;
+    document.getElementById("saveButton").addEventListener("click", async () => {
+      const active = markerRefs.filter((m) => m !== null);
 
-        const center = map.getCenter();
+      if (active.length === 0) {
+        alert("No markers to save. Upload an image first.");
+        return;
+      }
+      if (!uploadedFile) {
+        alert("Please upload an image.");
+        return;
+      }
 
-        addMarker(
-          "a ramp",
-          [center.lat, center.lng]
-        );
-      });
+      setStatus("Saving markers...");
+      let savedCount = 0;
+      let skippedCount = 0;
+      let errorCount = 0;
 
-    document
-      .getElementById("saveButton")
-      .addEventListener("click", async () => {
-
-        const active =
-          markerRefs.filter(
-            (m) => m !== null
-          );
-
-        if (active.length === 0) {
-          alert(
-            "No markers to save. Upload an image first."
-          );
-          return;
-        }
-
-        if (!uploadedFile) {
-          alert(
-            "Please upload an image."
-          );
-          return;
-        }
-
-        setStatus("Saving markers...");
+      for (const ref of active) {
+        const latlng = ref.leafletMarker.getLatLng();
+        const formData = new FormData();
+        formData.append("lat", latlng.lat);
+        formData.append("lng", latlng.lng);
+        formData.append("label", ref.select.value);
+        formData.append("image", uploadedFile);
 
         try {
+          const res = await fetch("https://atharvcapricorn07-pathable.hf.space/save-marker", {
+            method: "POST",
+            body: formData
+          });
 
-          for (const ref of active) {
-
-            const latlng =
-              ref.leafletMarker.getLatLng();
-
-            const formData =
-              new FormData();
-
-            formData.append(
-              "lat",
-              latlng.lat
-            );
-
-            formData.append(
-              "lng",
-              latlng.lng
-            );
-
-            formData.append(
-              "label",
-              ref.select.value
-            );
-
-            formData.append(
-              "image",
-              uploadedFile
-            );
-
-            await fetch(
-              "https://atharvcapricorn07-pathable.hf.space/save-marker",
-              {
-                method: "POST",
-                body: formData
-              }
-            );
+          if (res.status === 409) {
+            // Duplicate — skip silently and count it
+            skippedCount++;
+          } else if (!res.ok) {
+            errorCount++;
+            console.error(`Save failed for marker "${ref.select.value}":`, res.status);
+          } else {
+            savedCount++;
           }
-
-          setStatus(
-            "Saved successfully."
-          );
-
-          setTimeout(() => {
-            window.location.href =
-              "../index.html";
-          }, 1000);
-
         } catch (e) {
-
+          errorCount++;
           console.error(e);
-
-          setStatus(
-            "Error saving markers."
-          );
         }
-      });
+      }
+
+      // Build a clear status message
+      const parts = [];
+      if (savedCount > 0) parts.push(`${savedCount} marker${savedCount > 1 ? 's' : ''} saved`);
+      if (skippedCount > 0) parts.push(`${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped`);
+      if (errorCount > 0) parts.push(`${errorCount} failed`);
+
+      if (errorCount > 0 && savedCount === 0 && skippedCount === 0) {
+        setStatus("Error saving markers. Please try again.");
+      } else {
+        setStatus(parts.join(', ') + '.');
+        setTimeout(() => { window.location.href = "../index.html"; }, 1500);
+      }
+    });
 
     function setStatus(message) {
-      document.getElementById(
-        "status"
-      ).textContent = message;
+      document.getElementById("status").textContent = message;
     }
   </script>
 
