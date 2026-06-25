@@ -42,11 +42,20 @@ async function reverseGeocode(lat, lon) {
   } catch { return ''; }
 }
 
+// --- Geocode with location bias ---
+// Passes a viewbox around the user's current location so Nominatim
+// returns nearby results first instead of globally "important" ones.
 async function geocode(q) {
-  const res = await fetch(
-    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`,
-    { headers: { 'Accept-Language': 'en' } }
-  );
+  let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&limit=10`;
+
+  if (start) {
+    const [lat, lon] = start;
+    const delta = 0.5; // ~35 mile box — wide enough for suburbs, tight enough to beat other continents
+    url += `&viewbox=${lon - delta},${lat + delta},${lon + delta},${lat - delta}&bounded=0`;
+    // bounded=0 means: prefer results inside the box but still fall back outside if nothing matches
+  }
+
+  const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
   if (!res.ok) throw new Error('Failed geocode');
   return res.json();
 }
@@ -91,11 +100,6 @@ function isSafari() {
   return /^((?!chrome|android).)*safari/i.test(ua);
 }
 
-// On page load: check permission state first.
-// - granted  → request silently, no banner
-// - prompt   → show banner (Chrome needs gesture before prompting)
-// - denied   → show banner so user sees the settings message
-// Safari doesn't support navigator.permissions reliably, so bypass it.
 if (isSafari()) {
   requestLocation();
 } else {
@@ -111,11 +115,9 @@ if (isSafari()) {
     if (navigator.permissions) {
       navigator.permissions.query({ name: 'geolocation' }).then(result => {
         if (result.state === 'granted') {
-          // Already allowed — silently locate, hide banner
           hideBanner();
           requestLocation();
         }
-        // 'prompt' or 'denied' — leave banner visible
       });
     }
   });
@@ -139,6 +141,9 @@ let activeInput = null;
     try { results = await geocode(q); }
     catch { box.innerHTML = '<div class="suggestion">Network error</div>'; return; }
     if (!results.length) { box.innerHTML = '<div class="suggestion">No results</div>'; return; }
+
+    // Sort by distance from start as a secondary sort
+    // (Nominatim viewbox already does most of the work, this just fine-tunes ordering)
     if (start) {
       results.sort((a, b) => {
         const da = haversine(start, [parseFloat(a.lat), parseFloat(a.lon)]);
@@ -146,6 +151,7 @@ let activeInput = null;
         return da - db;
       });
     }
+
     lastSuggestions = results;
     box.innerHTML = results.slice(0, 5).map(r =>
       `<div class="suggestion" data-lat="${r.lat}" data-lon="${r.lon}">${r.display_name}</div>`
@@ -202,7 +208,6 @@ map.on('click', async (e) => {
   box.innerHTML = '';
 });
 
-// --- Use Location Button (always user-triggered, works on Chrome) ---
 document.getElementById('useLocationBtn').addEventListener('click', () => {
   requestLocation();
 });
