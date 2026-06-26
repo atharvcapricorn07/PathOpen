@@ -42,29 +42,43 @@ function haversine([lat1, lon1], [lat2, lon2]) {
 async function reverseGeocode(lat, lon) {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
-      { headers: { 'Accept-Language': 'en', 'User-Agent': 'PathAble/1.0' } }
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&email=atharv.capricorn@gmail.com`,
+      { headers: { 'Accept-Language': 'en' } }
     );
     const data = await res.json();
     return data.display_name || '';
-  } catch { return ''; }
+  } catch(e) {
+    console.error('reverseGeocode failed:', e);
+    return '';
+  }
 }
 
-// --- Geocode with location bias ---
+// --- Geocode with tight local bias ---
 async function geocode(q) {
-  let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&limit=10`;
+  const EMAIL = 'atharv.capricorn@gmail.com';
+  let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&limit=10&email=${EMAIL}`;
 
   if (start) {
     const [lat, lon] = start;
-    const delta = 0.5;
-    url += `&viewbox=${lon - delta},${lat + delta},${lon + delta},${lat - delta}&bounded=0`;
+    const delta = 0.15; // ~15km box — forces local results
+    url += `&viewbox=${lon - delta},${lat + delta},${lon + delta},${lat - delta}&bounded=1`;
   }
 
-  const res = await fetch(url, {
-    headers: { 'Accept-Language': 'en', 'User-Agent': 'PathAble/1.0' }
-  });
+  const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
   if (!res.ok) throw new Error('Failed geocode');
-  return res.json();
+  const results = await res.json();
+
+  // If bounded box returned nothing, retry without bounding so user isn't stuck
+  if (results.length === 0 && start) {
+    const fallback = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&limit=10&email=${EMAIL}`,
+      { headers: { 'Accept-Language': 'en' } }
+    );
+    if (!fallback.ok) throw new Error('Failed geocode');
+    return fallback.json();
+  }
+
+  return results;
 }
 
 // --- Geolocation ---
@@ -93,7 +107,7 @@ function requestLocation() {
         showToast('Location request timed out.', 4000);
       }
     },
-    { timeout: 10000, maximumAge: 0 }  // maximumAge:0 forces a fresh position every time
+    { timeout: 10000, maximumAge: 0 }
   );
 }
 
@@ -130,7 +144,7 @@ if (isSafari()) {
   });
 }
 
-// Re-populate start address whenever the page becomes visible again
+// Re-populate start address when page becomes visible again
 // (handles Chrome back-navigation and hard refresh clearing the field)
 window.addEventListener('pageshow', () => {
   if (navigator.permissions) {
@@ -153,6 +167,7 @@ window.addEventListener('pageshow', () => {
     catch { box.innerHTML = '<div class="suggestion">Network error</div>'; return; }
     if (!results.length) { box.innerHTML = '<div class="suggestion">No results</div>'; return; }
 
+    // Sort by distance from user if we have their location
     if (start) {
       results.sort((a, b) => {
         const da = haversine(start, [parseFloat(a.lat), parseFloat(a.lon)]);
