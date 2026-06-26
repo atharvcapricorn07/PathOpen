@@ -27,21 +27,46 @@ def haversine_meters(lat1, lon1, lat2, lon2):
     a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-# Ask BLIP direct yes/no questions for each ADA feature
-QUESTIONS = {
-    "a staircase":  "are there stairs or steps in this image?",
-    "a ramp":       "is there a wheelchair ramp or sloped ramp in this image?",
-    "a wheelchair": "is there a wheelchair in this image?",
-    "an elevator":  "is there an elevator or lift in this image?",
-    "a curb cut":   "is there a curb cut or dropped curb on a sidewalk in this image?",
-    "a handrail":   "is there a handrail or railing in this image?",
-}
-
 def ask(image: Image.Image, question: str) -> str:
     inputs = processor(image, question, return_tensors="pt")
     with torch.no_grad():
         out = model.generate(**inputs, max_new_tokens=10)
     return processor.decode(out[0], skip_special_tokens=True).strip().lower()
+
+# All 3 phrasings must answer "yes" for a label to be assigned.
+# Questions are intentionally specific and hard to falsely trigger.
+QUESTIONS = {
+    "a staircase": [
+        "are there multiple horizontal steps made of concrete or stone going up to an entrance?",
+        "do you see a set of stairs with flat treads and vertical risers leading to a building?",
+        "is there a staircase with more than two steps visible in this image?",
+    ],
+    "a ramp": [
+        "is there a smooth sloped surface specifically designed for wheelchair access?",
+        "do you see a dedicated wheelchair ramp with a gradual incline alongside or instead of stairs?",
+        "is there a sloped ramp with a non-slip surface intended for disabled access?",
+    ],
+    "a wheelchair": [
+        "is there a person sitting in a wheelchair visible in this image?",
+        "do you see a wheelchair with large wheels and a seat occupied by someone?",
+        "is there a mobility wheelchair device being used by a person in this photo?",
+    ],
+    "an elevator": [
+        "are there elevator doors with a call button panel visible in this image?",
+        "do you see a lift or elevator entrance with sliding metal doors?",
+        "is there an elevator shaft entrance or elevator lobby visible in this photo?",
+    ],
+    "a curb cut": [
+        "is there a small ramp cut into the edge of a sidewalk curb at a street crossing?",
+        "do you see a dropped curb or curb ramp where a sidewalk meets the road?",
+        "is there a wheelchair-accessible curb ramp at the edge of a sidewalk in this image?",
+    ],
+    "a handrail": [
+        "is there a metal or wooden handrail attached alongside a set of stairs?",
+        "do you see a railing that someone could grip while walking up or down steps?",
+        "is there a safety handrail mounted on posts next to a staircase in this image?",
+    ],
+}
 
 @app.route("/")
 def index():
@@ -59,14 +84,19 @@ def analyze_image():
     bottom_half = image.crop((0, h // 2, w, h))
 
     result = {}
-    for label, question in QUESTIONS.items():
+    for label, questions in QUESTIONS.items():
+        detected = False
         # Check full image first, then bottom half
         for img in [image, bottom_half]:
-            answer = ask(img, question)
-            print(f"Q: {question} | A: {answer}")
-            if answer in ("yes", "yes."):
+            answers = [ask(img, q) for q in questions]
+            print(f"[{label}] answers: {answers}")
+            # ALL 3 must say yes — strict consensus
+            if all(a in ("yes", "yes.") for a in answers):
                 result[label] = 1.0
-                break  # found it, no need to check bottom half
+                detected = True
+                break
+        if not detected:
+            print(f"[{label}] NOT detected (no consensus)")
 
     if not result:
         result["_caption"] = "no features detected"
