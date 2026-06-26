@@ -54,13 +54,36 @@ async function reverseGeocode(lat, lon) {
   }
 }
 
-// --- Geocode with hard 50km circle filter ---
+// --- Geocode: Places API first (for businesses), geocoding fallback ---
 async function geocode(q) {
-  let url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(q)}&limit=10&apiKey=${GEOAPIFY_KEY}`;
+  const KEY = GEOAPIFY_KEY;
 
+  // If we have user location, try Places API first — much better for business name searches
   if (start) {
     const [lat, lon] = start;
-    // Hard filter: only return results within 50km, biased toward user
+    const placesUrl = `https://api.geoapify.com/v2/places?categories=catering,commercial,service,tourism,entertainment,education,healthcare,public_transport&filter=circle:${lon},${lat},50000&bias=proximity:${lon},${lat}&limit=10&name=${encodeURIComponent(q)}&apiKey=${KEY}`;
+
+    try {
+      const placesRes = await fetch(placesUrl);
+      if (placesRes.ok) {
+        const placesData = await placesRes.json();
+        if (placesData.features.length > 0) {
+          return placesData.features.map(f => ({
+            display_name: f.properties.formatted || f.properties.name,
+            lat: f.properties.lat,
+            lon: f.properties.lon
+          }));
+        }
+      }
+    } catch(e) {
+      console.error('Places API failed, falling back to geocoding:', e);
+    }
+  }
+
+  // Fallback: geocoding with circle filter + proximity bias
+  let url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(q)}&limit=10&apiKey=${KEY}`;
+  if (start) {
+    const [lat, lon] = start;
     url += `&filter=circle:${lon},${lat},50000&bias=proximity:${lon},${lat}`;
   }
 
@@ -68,11 +91,11 @@ async function geocode(q) {
   if (!res.ok) throw new Error('Geocode failed');
   const data = await res.json();
 
-  // If circle filter returned nothing, retry without it so user isn't stuck
+  // If circle filter returned nothing, retry without it
   if (data.features.length === 0 && start) {
     const [lat, lon] = start;
     const fallback = await fetch(
-      `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(q)}&limit=10&apiKey=${GEOAPIFY_KEY}&bias=proximity:${lon},${lat}`
+      `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(q)}&limit=10&apiKey=${KEY}&bias=proximity:${lon},${lat}`
     );
     if (!fallback.ok) throw new Error('Geocode failed');
     const fallbackData = await fallback.json();
