@@ -39,46 +39,39 @@ function haversine([lat1, lon1], [lat2, lon2]) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+const GEOAPIFY_KEY = '6445d99b338a472c939c735ab3798aba';
+
 async function reverseGeocode(lat, lon) {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&email=atharv.capricorn@gmail.com`,
-      { headers: { 'Accept-Language': 'en' } }
+      `https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lon}&apiKey=${GEOAPIFY_KEY}`
     );
     const data = await res.json();
-    return data.display_name || '';
+    return data.features?.[0]?.properties?.formatted || '';
   } catch(e) {
     console.error('reverseGeocode failed:', e);
     return '';
   }
 }
 
-// --- Geocode with tight local bias ---
+// --- Geocode with proximity bias ---
 async function geocode(q) {
-  const EMAIL = 'atharv.capricorn@gmail.com';
-  let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&limit=10&email=${EMAIL}`;
+  let url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(q)}&limit=10&apiKey=${GEOAPIFY_KEY}`;
 
   if (start) {
     const [lat, lon] = start;
-    const delta = 0.15; // ~15km box — forces local results
-    url += `&viewbox=${lon - delta},${lat + delta},${lon + delta},${lat - delta}&bounded=1`;
+    url += `&bias=proximity:${lon},${lat}`;
   }
 
-  const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
-  if (!res.ok) throw new Error('Failed geocode');
-  const results = await res.json();
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Geocode failed');
+  const data = await res.json();
 
-  // If bounded box returned nothing, retry without bounding so user isn't stuck
-  if (results.length === 0 && start) {
-    const fallback = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&limit=10&email=${EMAIL}`,
-      { headers: { 'Accept-Language': 'en' } }
-    );
-    if (!fallback.ok) throw new Error('Failed geocode');
-    return fallback.json();
-  }
-
-  return results;
+  return data.features.map(f => ({
+    display_name: f.properties.formatted,
+    lat: f.properties.lat,
+    lon: f.properties.lon
+  }));
 }
 
 // --- Geolocation ---
