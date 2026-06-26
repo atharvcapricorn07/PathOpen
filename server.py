@@ -1,24 +1,23 @@
 from flask import Flask, request, jsonify, send_from_directory
 from PIL import Image
 from supabase import create_client
-import google.generativeai as genai
-import base64, io, os, time, math, json, re
+from google import genai
+from google.genai import types
+import io, os, time, math, json, re
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app, origins=["https://pathable-mu.vercel.app", "https://atharvcapricorn07-pathable.hf.space", "http://127.0.0.1:5000"])
 
-SUPABASE_URL  = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY  = os.environ.get("SUPABASE_KEY")
-GEMINI_KEY    = os.environ.get("GEMINI_API_KEY")
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+GEMINI_KEY   = os.environ.get("GEMINI_API_KEY")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-genai.configure(api_key=GEMINI_KEY)
-gemini = genai.GenerativeModel("gemini-2.0-flash")
+client   = genai.Client(api_key=GEMINI_KEY)
 
 DUPLICATE_RADIUS_METERS = 15
 ABSOLUTE_BLOCK_METERS   = 5
-
 VALID_LABELS = ["a staircase", "a ramp", "a wheelchair", "an elevator", "a curb cut", "a handrail"]
 
 def haversine_meters(lat1, lon1, lat2, lon2):
@@ -40,15 +39,12 @@ def static_files(filename):
 @app.route("/analyze", methods=["POST"])
 def analyze_image():
     try:
-        file      = request.files['image']
-        img_bytes = file.read()
-
-        # Resize to speed up API call
-        image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        file  = request.files['image']
+        image = Image.open(io.BytesIO(file.read())).convert("RGB")
         image.thumbnail((800, 800))
         buf = io.BytesIO()
         image.save(buf, format="JPEG", quality=85)
-        buf.seek(0)
+        img_bytes = buf.getvalue()
 
         prompt = (
             "You are an ADA accessibility feature detector. "
@@ -66,20 +62,20 @@ def analyze_image():
             "If nothing is present, reply: []"
         )
 
-        response = gemini.generate_content([
-            {"mime_type": "image/jpeg", "data": buf.read()},
-            prompt
-        ])
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[
+                types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"),
+                prompt
+            ]
+        )
 
         raw = response.text.strip()
         print(f"Gemini response: {raw}")
 
         match = re.search(r'\[.*?\]', raw, re.DOTALL)
-        if match:
-            labels = json.loads(match.group())
-            labels = [l for l in labels if l in VALID_LABELS]
-        else:
-            labels = []
+        labels = json.loads(match.group()) if match else []
+        labels = [l for l in labels if l in VALID_LABELS]
 
         result = {label: 1.0 for label in labels} if labels else {"_caption": "no features detected"}
         return jsonify(result)
@@ -129,7 +125,6 @@ def save_marker():
             )
             for m in (existing.data or []):
                 dist = haversine_meters(lat, lng, float(m['lat']), float(m['lng']))
-
                 if dist <= ABSOLUTE_BLOCK_METERS:
                     return jsonify({
                         "error": "A marker already exists very close to this spot.",
@@ -139,10 +134,8 @@ def save_marker():
                             "image_url": m.get("image_url"), "distance_m": round(dist, 1)
                         }
                     }), 409
-
                 if dist > DUPLICATE_RADIUS_METERS:
                     continue
-
                 if m['label'] == label:
                     return jsonify({
                         "error": f"A '{label}' marker already exists nearby.",

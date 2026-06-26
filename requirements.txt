@@ -4,4 +4,4 @@ supabase
 Pillow
 requests
 gunicorn
-google-generativeai
+google-genai
