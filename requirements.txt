@@ -1,8 +1,7 @@
 flask
 flask-cors
 supabase
-transformers
-torch
 Pillow
 requests
 gunicorn
+google-generativeai

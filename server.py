@@ -1,23 +1,25 @@
 from flask import Flask, request, jsonify, send_from_directory
 from PIL import Image
-from transformers import BlipProcessor, BlipForQuestionAnswering
 from supabase import create_client
-import torch, io, os, time, math
+import google.generativeai as genai
+import base64, io, os, time, math, json, re
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app, origins=["https://pathable-mu.vercel.app", "https://atharvcapricorn07-pathable.hf.space", "http://127.0.0.1:5000"])
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+SUPABASE_URL  = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY  = os.environ.get("SUPABASE_KEY")
+GEMINI_KEY    = os.environ.get("GEMINI_API_KEY")
 
-processor = BlipProcessor.from_pretrained("Salesforce/blip-vqa-base")
-model     = BlipForQuestionAnswering.from_pretrained("Salesforce/blip-vqa-base")
-model.eval()
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+genai.configure(api_key=GEMINI_KEY)
+gemini = genai.GenerativeModel("gemini-2.0-flash")
 
 DUPLICATE_RADIUS_METERS = 15
 ABSOLUTE_BLOCK_METERS   = 5
+
+VALID_LABELS = ["a staircase", "a ramp", "a wheelchair", "an elevator", "a curb cut", "a handrail"]
 
 def haversine_meters(lat1, lon1, lat2, lon2):
     R = 6371000
@@ -26,47 +28,6 @@ def haversine_meters(lat1, lon1, lat2, lon2):
     dlambda = math.radians(lon2 - lon1)
     a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-def ask(image: Image.Image, question: str) -> str:
-    inputs = processor(image, question, return_tensors="pt")
-    with torch.no_grad():
-        out = model.generate(**inputs, max_new_tokens=10)
-    return processor.decode(out[0], skip_special_tokens=True).strip().lower()
-
-# All 3 phrasings must answer "yes" for a label to be assigned.
-# Questions are intentionally specific and hard to falsely trigger.
-QUESTIONS = {
-    "a staircase": [
-        "are there multiple horizontal steps made of concrete or stone going up to an entrance?",
-        "do you see a set of stairs with flat treads and vertical risers leading to a building?",
-        "is there a staircase with more than two steps visible in this image?",
-    ],
-    "a ramp": [
-        "is there a smooth sloped surface specifically designed for wheelchair access?",
-        "do you see a dedicated wheelchair ramp with a gradual incline alongside or instead of stairs?",
-        "is there a sloped ramp with a non-slip surface intended for disabled access?",
-    ],
-    "a wheelchair": [
-        "is there a person sitting in a wheelchair visible in this image?",
-        "do you see a wheelchair with large wheels and a seat occupied by someone?",
-        "is there a mobility wheelchair device being used by a person in this photo?",
-    ],
-    "an elevator": [
-        "are there elevator doors with a call button panel visible in this image?",
-        "do you see a lift or elevator entrance with sliding metal doors?",
-        "is there an elevator shaft entrance or elevator lobby visible in this photo?",
-    ],
-    "a curb cut": [
-        "is there a small ramp cut into the edge of a sidewalk curb at a street crossing?",
-        "do you see a dropped curb or curb ramp where a sidewalk meets the road?",
-        "is there a wheelchair-accessible curb ramp at the edge of a sidewalk in this image?",
-    ],
-    "a handrail": [
-        "is there a metal or wooden handrail attached alongside a set of stairs?",
-        "do you see a railing that someone could grip while walking up or down steps?",
-        "is there a safety handrail mounted on posts next to a staircase in this image?",
-    ],
-}
 
 @app.route("/")
 def index():
@@ -78,30 +39,54 @@ def static_files(filename):
 
 @app.route("/analyze", methods=["POST"])
 def analyze_image():
-    file  = request.files['image']
-    image = Image.open(io.BytesIO(file.read())).convert("RGB")
-    w, h  = image.size
-    bottom_half = image.crop((0, h // 2, w, h))
+    try:
+        file      = request.files['image']
+        img_bytes = file.read()
 
-    result = {}
-    for label, questions in QUESTIONS.items():
-        detected = False
-        # Check full image first, then bottom half
-        for img in [image, bottom_half]:
-            answers = [ask(img, q) for q in questions]
-            print(f"[{label}] answers: {answers}")
-            # ALL 3 must say yes — strict consensus
-            if all(a in ("yes", "yes.") for a in answers):
-                result[label] = 1.0
-                detected = True
-                break
-        if not detected:
-            print(f"[{label}] NOT detected (no consensus)")
+        # Resize to speed up API call
+        image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        image.thumbnail((800, 800))
+        buf = io.BytesIO()
+        image.save(buf, format="JPEG", quality=85)
+        buf.seek(0)
 
-    if not result:
-        result["_caption"] = "no features detected"
+        prompt = (
+            "You are an ADA accessibility feature detector. "
+            "Look at this image and identify which of the following are CLEARLY and VISIBLY present. "
+            "Only include features you can actually see — do not guess.\n\n"
+            "Features to check:\n"
+            "- a staircase (steps going up or down)\n"
+            "- a ramp (sloped surface for wheelchair access, distinct from stairs)\n"
+            "- a wheelchair (person sitting in a wheelchair)\n"
+            "- an elevator (elevator doors or call buttons)\n"
+            "- a curb cut (small ramp cut into a sidewalk curb at street level)\n"
+            "- a handrail (railing mounted next to stairs or a ramp)\n\n"
+            "Reply ONLY with a JSON array using exact label names. "
+            "Example: [\"a staircase\", \"a handrail\"]\n"
+            "If nothing is present, reply: []"
+        )
 
-    return jsonify(result)
+        response = gemini.generate_content([
+            {"mime_type": "image/jpeg", "data": buf.read()},
+            prompt
+        ])
+
+        raw = response.text.strip()
+        print(f"Gemini response: {raw}")
+
+        match = re.search(r'\[.*?\]', raw, re.DOTALL)
+        if match:
+            labels = json.loads(match.group())
+            labels = [l for l in labels if l in VALID_LABELS]
+        else:
+            labels = []
+
+        result = {label: 1.0 for label in labels} if labels else {"_caption": "no features detected"}
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"ERROR in analyze_image: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/debug")
 def debug():
