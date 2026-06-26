@@ -21,7 +21,6 @@ html, body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
-.input-group { position: relative; display: flex; flex: 1; min-width: 0; }
 
 #startSearch {
   flex: 1; min-width: 0;
@@ -44,14 +43,18 @@ html, body {
 }
 #useLocationBtn:hover { background: #3a3a4e; }
 
+/* Make end search bar match start search bar height exactly */
 #endSearch {
   flex: 1; min-width: 0;
   padding: 8px 12px; border-radius: 8px;
   border: none;
   background: #2a2a3e; color: white; outline: none;
   font-size: max(16px, 14px);
+  align-self: stretch;   /* stretch to match siblings in the flex row */
+  box-sizing: border-box;
 }
 #endSearch::placeholder { color: #888; }
+
 
 #suggestions {
   position: absolute; top: 56px; left: 0; width: 100%;
@@ -184,6 +187,8 @@ html, body {
   font-size: 16px; cursor: pointer; padding: 4px 6px;
   min-height: 36px; min-width: 36px;
 }
+
+.input-group { position: relative; display: flex; flex: 1; min-width: 0; min-height: 44px; align-items: stretch; }
 
 .marker-label {
   background-color: #0d9488; color: white;
