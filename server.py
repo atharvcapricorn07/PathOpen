@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
 from PIL import Image
-from transformers import CLIPProcessor, CLIPModel
+from transformers import BlipProcessor, BlipForConditionalGeneration
 from supabase import create_client
 import torch, io, os, time, math
 from flask_cors import CORS
@@ -12,8 +12,9 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-model     = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+model     = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+model.eval()
 
 DUPLICATE_RADIUS_METERS = 15
 ABSOLUTE_BLOCK_METERS   = 5
@@ -25,6 +26,32 @@ def haversine_meters(lat1, lon1, lat2, lon2):
     dlambda = math.radians(lon2 - lon1)
     a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+# Keyword sets for each ADA label — match against BLIP caption
+LABEL_KEYWORDS = {
+    "a staircase":  ["stair", "stairs", "staircase", "steps", "step"],
+    "a ramp":       ["ramp", "slope", "sloped", "incline", "wheelchair ramp"],
+    "a wheelchair": ["wheelchair", "wheel chair", "mobility"],
+    "an elevator":  ["elevator", "lift", "elevator door", "elevator button"],
+    "a curb cut":   ["curb cut", "curb", "kerb", "dropped curb", "sidewalk cut"],
+    "a handrail":   ["handrail", "railing", "rail", "bannister", "banister"],
+}
+
+def caption_to_labels(caption: str) -> dict:
+    caption_lower = caption.lower()
+    result = {}
+    for label, keywords in LABEL_KEYWORDS.items():
+        for kw in keywords:
+            if kw in caption_lower:
+                result[label] = 1.0
+                break
+    return result
+
+def generate_caption(image: Image.Image) -> str:
+    inputs = processor(image, return_tensors="pt")
+    with torch.no_grad():
+        out = model.generate(**inputs, max_new_tokens=50)
+    return processor.decode(out[0], skip_special_tokens=True)
 
 @app.route("/")
 def index():
@@ -41,51 +68,29 @@ def analyze_image():
     w, h  = image.size
     bottom_half = image.crop((0, h // 2, w, h))
 
-    positive_prompts = [
-        "a flight of concrete or stone stairs with multiple steps going up or down",
-        "a sloped wheelchair ramp leading to a building entrance",
-        "a person sitting in a wheelchair or a parked wheelchair",
-        "an elevator door or lift button panel on a wall",
-        "a curb cut or dropped kerb at the edge of a sidewalk",
-        "a metal handrail along stairs or a ramp",
-    ]
-    negative_prompts = [
-        "a flat empty sidewalk with no steps or ramp",
-        "the interior of a building lobby or hallway with no steps",
-        "a street or road with no accessibility features",
-        "a grassy field or park with no structures",
-    ]
-    label_map = {
-        "a flight of concrete or stone stairs with multiple steps going up or down": "a staircase",
-        "a sloped wheelchair ramp leading to a building entrance": "a ramp",
-        "a person sitting in a wheelchair or a parked wheelchair": "a wheelchair",
-        "an elevator door or lift button panel on a wall": "an elevator",
-        "a curb cut or dropped kerb at the edge of a sidewalk": "a curb cut",
-        "a metal handrail along stairs or a ramp": "a handrail",
-    }
+    # Caption both full image and bottom half, merge results
+    caption_full   = generate_caption(image)
+    caption_bottom = generate_caption(bottom_half)
+    print(f"BLIP caption (full): {caption_full}")
+    print(f"BLIP caption (bottom): {caption_bottom}")
 
-    all_prompts = positive_prompts + negative_prompts
-    confidence  = {}
+    labels_full   = caption_to_labels(caption_full)
+    labels_bottom = caption_to_labels(caption_bottom)
 
-    for img in [image, bottom_half]:
-        inputs  = processor(text=all_prompts, images=img, return_tensors="pt", padding=True)
-        outputs = model(**inputs)
-        probs   = outputs.logits_per_image.softmax(dim=1)[0].tolist()
-        neg_mass = sum(probs[len(positive_prompts):])
-        for i, prompt in enumerate(positive_prompts):
-            raw      = probs[i]
-            adjusted = raw - (0.5 * neg_mass * raw)
-            short    = label_map[prompt]
-            confidence[short] = max(confidence.get(short, 0), round(adjusted, 4))
+    # Merge — if either pass finds a label, include it
+    merged = {**labels_full, **labels_bottom}
 
-    result = {k: v for k, v in confidence.items() if v >= 0.07}
-    return jsonify(result)
+    # If nothing matched, return the raw caption so frontend can show it
+    if not merged:
+        merged["_caption"] = caption_full
+
+    return jsonify(merged)
 
 @app.route("/debug")
 def debug():
     return jsonify({
-        "supabase_url":   SUPABASE_URL,
-        "key_length":     len(SUPABASE_KEY) if SUPABASE_KEY else 0,
+        "supabase_url":    SUPABASE_URL,
+        "key_length":      len(SUPABASE_KEY) if SUPABASE_KEY else 0,
         "key_starts_with": SUPABASE_KEY[:10] if SUPABASE_KEY else "EMPTY"
     })
 
@@ -111,7 +116,7 @@ def save_marker():
 
         file_bytes = file.read() if file else None
 
-        # Duplicate check — distance + label only (embedding removed, too slow on CPU)
+        # Duplicate check — distance + label only
         if not force:
             delta    = 0.0002
             existing = (
