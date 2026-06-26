@@ -54,18 +54,34 @@ async function reverseGeocode(lat, lon) {
   }
 }
 
-// --- Geocode with proximity bias ---
+// --- Geocode with hard 50km circle filter ---
 async function geocode(q) {
   let url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(q)}&limit=10&apiKey=${GEOAPIFY_KEY}`;
 
   if (start) {
     const [lat, lon] = start;
-    url += `&bias=proximity:${lon},${lat}`;
+    // Hard filter: only return results within 50km, biased toward user
+    url += `&filter=circle:${lon},${lat},50000&bias=proximity:${lon},${lat}`;
   }
 
   const res = await fetch(url);
   if (!res.ok) throw new Error('Geocode failed');
   const data = await res.json();
+
+  // If circle filter returned nothing, retry without it so user isn't stuck
+  if (data.features.length === 0 && start) {
+    const [lat, lon] = start;
+    const fallback = await fetch(
+      `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(q)}&limit=10&apiKey=${GEOAPIFY_KEY}&bias=proximity:${lon},${lat}`
+    );
+    if (!fallback.ok) throw new Error('Geocode failed');
+    const fallbackData = await fallback.json();
+    return fallbackData.features.map(f => ({
+      display_name: f.properties.formatted,
+      lat: f.properties.lat,
+      lon: f.properties.lon
+    }));
+  }
 
   return data.features.map(f => ({
     display_name: f.properties.formatted,
@@ -138,7 +154,6 @@ if (isSafari()) {
 }
 
 // Re-populate start address when page becomes visible again
-// (handles Chrome back-navigation and hard refresh clearing the field)
 window.addEventListener('pageshow', () => {
   if (navigator.permissions) {
     navigator.permissions.query({ name: 'geolocation' }).then(result => {
