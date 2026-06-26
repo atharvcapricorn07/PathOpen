@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
 from PIL import Image
-from transformers import BlipProcessor, BlipForConditionalGeneration
+from transformers import BlipProcessor, BlipForQuestionAnswering
 from supabase import create_client
 import torch, io, os, time, math
 from flask_cors import CORS
@@ -12,8 +12,8 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-model     = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+processor = BlipProcessor.from_pretrained("Salesforce/blip-vqa-base")
+model     = BlipForQuestionAnswering.from_pretrained("Salesforce/blip-vqa-base")
 model.eval()
 
 DUPLICATE_RADIUS_METERS = 15
@@ -27,31 +27,21 @@ def haversine_meters(lat1, lon1, lat2, lon2):
     a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-# Keyword sets for each ADA label — match against BLIP caption
-LABEL_KEYWORDS = {
-    "a staircase":  ["stair", "stairs", "staircase", "steps", "step"],
-    "a ramp":       ["ramp", "slope", "sloped", "incline", "wheelchair ramp"],
-    "a wheelchair": ["wheelchair", "wheel chair", "mobility"],
-    "an elevator":  ["elevator", "lift", "elevator door", "elevator button"],
-    "a curb cut":   ["curb cut", "curb", "kerb", "dropped curb", "sidewalk cut"],
-    "a handrail":   ["handrail", "railing", "rail", "bannister", "banister"],
+# Ask BLIP direct yes/no questions for each ADA feature
+QUESTIONS = {
+    "a staircase":  "are there stairs or steps in this image?",
+    "a ramp":       "is there a wheelchair ramp or sloped ramp in this image?",
+    "a wheelchair": "is there a wheelchair in this image?",
+    "an elevator":  "is there an elevator or lift in this image?",
+    "a curb cut":   "is there a curb cut or dropped curb on a sidewalk in this image?",
+    "a handrail":   "is there a handrail or railing in this image?",
 }
 
-def caption_to_labels(caption: str) -> dict:
-    caption_lower = caption.lower()
-    result = {}
-    for label, keywords in LABEL_KEYWORDS.items():
-        for kw in keywords:
-            if kw in caption_lower:
-                result[label] = 1.0
-                break
-    return result
-
-def generate_caption(image: Image.Image) -> str:
-    inputs = processor(image, return_tensors="pt")
+def ask(image: Image.Image, question: str) -> str:
+    inputs = processor(image, question, return_tensors="pt")
     with torch.no_grad():
-        out = model.generate(**inputs, max_new_tokens=50)
-    return processor.decode(out[0], skip_special_tokens=True)
+        out = model.generate(**inputs, max_new_tokens=10)
+    return processor.decode(out[0], skip_special_tokens=True).strip().lower()
 
 @app.route("/")
 def index():
@@ -68,23 +58,20 @@ def analyze_image():
     w, h  = image.size
     bottom_half = image.crop((0, h // 2, w, h))
 
-    # Caption both full image and bottom half, merge results
-    caption_full   = generate_caption(image)
-    caption_bottom = generate_caption(bottom_half)
-    print(f"BLIP caption (full): {caption_full}")
-    print(f"BLIP caption (bottom): {caption_bottom}")
+    result = {}
+    for label, question in QUESTIONS.items():
+        # Check full image first, then bottom half
+        for img in [image, bottom_half]:
+            answer = ask(img, question)
+            print(f"Q: {question} | A: {answer}")
+            if answer in ("yes", "yes."):
+                result[label] = 1.0
+                break  # found it, no need to check bottom half
 
-    labels_full   = caption_to_labels(caption_full)
-    labels_bottom = caption_to_labels(caption_bottom)
+    if not result:
+        result["_caption"] = "no features detected"
 
-    # Merge — if either pass finds a label, include it
-    merged = {**labels_full, **labels_bottom}
-
-    # If nothing matched, return the raw caption so frontend can show it
-    if not merged:
-        merged["_caption"] = caption_full
-
-    return jsonify(merged)
+    return jsonify(result)
 
 @app.route("/debug")
 def debug():
@@ -116,7 +103,6 @@ def save_marker():
 
         file_bytes = file.read() if file else None
 
-        # Duplicate check — distance + label only
         if not force:
             delta    = 0.0002
             existing = (
@@ -152,7 +138,6 @@ def save_marker():
                         }
                     }), 409
 
-        # Image upload
         image_url = None
         if file_bytes:
             filename    = f"{label.replace(' ', '_')}_{int(abs(lat)*1000)}_{int(abs(lng)*1000)}_{int(time.time())}.jpg"
