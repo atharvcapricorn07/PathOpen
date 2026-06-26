@@ -1,9 +1,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 from PIL import Image
 from supabase import create_client
-from google import genai
-from google.genai import types
-import io, os, time, math, json, re
+import io, os, time, math, json, re, base64, requests as req
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -11,10 +9,9 @@ CORS(app, origins=["https://pathable-mu.vercel.app", "https://atharvcapricorn07-
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-GEMINI_KEY   = os.environ.get("GEMINI_API_KEY")
+GROQ_KEY     = os.environ.get("GROQ_API_KEY")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-client   = genai.Client(api_key=GEMINI_KEY)
 
 DUPLICATE_RADIUS_METERS = 15
 ABSOLUTE_BLOCK_METERS   = 5
@@ -44,7 +41,7 @@ def analyze_image():
         image.thumbnail((800, 800))
         buf = io.BytesIO()
         image.save(buf, format="JPEG", quality=85)
-        img_bytes = buf.getvalue()
+        img_b64 = base64.standard_b64encode(buf.getvalue()).decode("utf-8")
 
         prompt = (
             "You are an ADA accessibility feature detector. "
@@ -58,20 +55,37 @@ def analyze_image():
             "- a curb cut (small ramp cut into a sidewalk curb at street level)\n"
             "- a handrail (railing mounted next to stairs or a ramp)\n\n"
             "Reply ONLY with a JSON array using exact label names. "
-            "Example: [\"a staircase\", \"a handrail\"]\n"
+            'Example: ["a staircase", "a handrail"]\n'
             "If nothing is present, reply: []"
         )
 
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[
-                types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"),
-                prompt
-            ]
+        response = req.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+                "max_tokens": 256,
+                "messages": [{
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}
+                        },
+                        {
+                            "type": "text",
+                            "text": prompt
+                        }
+                    ]
+                }]
+            }
         )
 
-        raw = response.text.strip()
-        print(f"Gemini response: {raw}")
+        raw = response.json()["choices"][0]["message"]["content"].strip()
+        print(f"Groq response: {raw}")
 
         match = re.search(r'\[.*?\]', raw, re.DOTALL)
         labels = json.loads(match.group()) if match else []
@@ -104,7 +118,6 @@ def get_markers():
 
 @app.route("/save-marker", methods=["POST"])
 def save_marker():
-    import requests as req
     try:
         lat   = float(request.form.get('lat'))
         lng   = float(request.form.get('lng'))
