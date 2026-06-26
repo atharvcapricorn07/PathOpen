@@ -3,7 +3,6 @@
 html, body {
   margin: 0; padding: 0; height: 100%; overflow: hidden;
   font-family: 'Segoe UI', Roboto, sans-serif;
-  /* Prevent iOS bounce scroll causing layout jumps */
   overscroll-behavior: none;
 }
 
@@ -11,9 +10,8 @@ html, body {
   position: absolute;
   top: 0; left: 0; right: 0; height: 56px;
   background: #1a1a2e;
-  display: flex; align-items: center;
-  padding: 0 12px;
-  /* Safe area for iPhone notch/Dynamic Island */
+  display: flex; align-items: stretch;
+  padding: 8px 12px;
   padding-left: max(12px, env(safe-area-inset-left));
   padding-right: max(12px, env(safe-area-inset-right));
   gap: 8px;
@@ -21,14 +19,20 @@ html, body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
+/* input-group wraps startSearch + location btn, takes half the space */
+.input-group {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
 
 #startSearch {
   flex: 1; min-width: 0;
-  padding: 8px 36px 8px 12px;
+  padding: 0 0 0 12px;
   border-radius: 8px 0 0 8px;
-  border: none; font-size: 14px;
+  border: none;
   background: #2a2a3e; color: white; outline: none;
-  /* Prevent iOS zoom on focus (font-size must be >= 16px or use this) */
   font-size: max(16px, 14px);
 }
 #startSearch::placeholder { color: #888; }
@@ -38,23 +42,20 @@ html, body {
   background: #2a2a3e; color: white; cursor: pointer;
   border-radius: 0 8px 8px 0; font-size: 16px;
   border-left: 1px solid #444; transition: background 0.2s; flex-shrink: 0;
-  /* Minimum touch target */
-  min-width: 44px; min-height: 44px;
+  min-width: 44px;
 }
 #useLocationBtn:hover { background: #3a3a4e; }
 
-/* Make end search bar match start search bar height exactly */
+/* endSearch takes the other half — same flex:1 as .input-group */
 #endSearch {
   flex: 1; min-width: 0;
-  padding: 8px 12px; border-radius: 8px;
+  padding: 0 12px;
+  border-radius: 8px;
   border: none;
   background: #2a2a3e; color: white; outline: none;
   font-size: max(16px, 14px);
-  align-self: stretch;   /* stretch to match siblings in the flex row */
-  box-sizing: border-box;
 }
 #endSearch::placeholder { color: #888; }
-
 
 #suggestions {
   position: absolute; top: 56px; left: 0; width: 100%;
@@ -68,7 +69,6 @@ html, body {
   padding: 10px 14px; cursor: pointer; font-size: 13px; color: #ddd;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   border-bottom: 1px solid #2a2a3e;
-  /* Better touch tap area */
   min-height: 44px; display: flex; align-items: center;
 }
 .suggestion:last-child { border-bottom: none; }
@@ -76,7 +76,6 @@ html, body {
 
 #map {
   position: absolute; top: 56px; bottom: 0; left: 0; right: 0;
-  /* Safe area for home bar on iPhone */
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -89,7 +88,6 @@ html, body {
   border: none; border-radius: 50px; font-size: 15px; font-weight: 600;
   cursor: pointer; box-shadow: 0 4px 16px rgba(13,148,136,0.4);
   transition: background 0.2s, transform 0.1s; white-space: nowrap;
-  /* Ensure it never goes under the cancel button */
   max-width: calc(100% - 160px);
 }
 #routeBtn:hover { background: #0f766e; }
@@ -159,7 +157,6 @@ html, body {
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-/* Location permission banner */
 #locationBanner {
   position: fixed;
   bottom: max(80px, calc(80px + env(safe-area-inset-bottom)));
@@ -188,8 +185,6 @@ html, body {
   min-height: 36px; min-width: 36px;
 }
 
-.input-group { position: relative; display: flex; flex: 1; min-width: 0; min-height: 44px; align-items: stretch; }
-
 .marker-label {
   background-color: #0d9488; color: white;
   padding: 4px 10px; border-radius: 6px;
@@ -213,14 +208,12 @@ html, body {
   #map { top: 108px; }
   #suggestions { top: 108px; }
 
-  /* Stack the two right-side buttons so they don't overlap */
   #fab { top: 118px; font-size: 12px; padding: 8px 12px; }
   #helpBtn { top: 170px; font-size: 12px; padding: 8px 12px; }
 
   #routeBtn {
     font-size: 14px; padding: 10px 22px;
     bottom: max(16px, calc(16px + env(safe-area-inset-bottom)));
-    /* On small screens give it more room */
     max-width: calc(100% - 140px);
   }
   #cancelRouteBtn {
