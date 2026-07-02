@@ -3,6 +3,22 @@ let start = null, dest = null, routeControl;
 let routeActive = false;
 let adaMarkers = [];
 
+// --- Anonymous device tracking (no login, just a local ID) ---
+function getDeviceId() {
+  let id = localStorage.getItem('pathable_device_id');
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem('pathable_device_id', id);
+  }
+  return id;
+}
+
+fetch('https://atharvcapricorn07-pathable.hf.space/track', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ device_id: getDeviceId() })
+}).catch(() => {}); // fire-and-forget, don't block the app if this fails
+
 // --- Elements (declared first so geolocation callback can reference them) ---
 const startInput = document.getElementById('startSearch');
 const endInput = document.getElementById('endSearch');

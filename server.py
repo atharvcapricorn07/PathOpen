@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from PIL import Image
 from supabase import create_client
 import io, os, time, math, json, re, base64, requests as req
+from datetime import datetime, timezone
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -184,6 +185,50 @@ def save_marker():
 
     except Exception as e:
         print(f"ERROR in save_marker: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/track", methods=["POST"])
+def track_device():
+    try:
+        data = request.get_json(silent=True) or {}
+        device_id = data.get("device_id")
+        if not device_id:
+            return jsonify({"error": "missing device_id"}), 400
+
+        existing = (
+            supabase.table("device_visits")
+            .select("visit_count")
+            .eq("device_id", device_id)
+            .execute()
+        )
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        if existing.data:
+            current_count = existing.data[0]["visit_count"]
+            supabase.table("device_visits").update({
+                "last_seen": now_iso,
+                "visit_count": current_count + 1
+            }).eq("device_id", device_id).execute()
+        else:
+            supabase.table("device_visits").insert({
+                "device_id": device_id,
+                "first_seen": now_iso,
+                "last_seen": now_iso
+            }).execute()
+
+        return jsonify({"success": True})
+
+    except Exception as e:
+        print(f"ERROR in track_device: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/stats")
+def stats():
+    try:
+        total = supabase.table("device_visits").select("device_id", count="exact").execute()
+        return jsonify({"unique_devices": total.count})
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
