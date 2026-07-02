@@ -223,12 +223,46 @@ def track_device():
         print(f"ERROR in track_device: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/track-route", methods=["POST"])
+def track_route():
+    try:
+        supabase.table("route_events").insert({}).execute()
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"ERROR in track_route: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/stats")
 def stats():
     try:
-        total = supabase.table("device_visits").select("device_id", count="exact").execute()
-        return jsonify({"unique_devices": total.count})
+        unique_devices = supabase.table("device_visits").select("device_id", count="exact").execute()
+
+        returning_devices = (
+            supabase.table("device_visits")
+            .select("device_id", count="exact")
+            .gt("visit_count", 1)
+            .execute()
+        )
+
+        total_markers = supabase.table("ada_markers").select("id", count="exact").execute()
+
+        routes_generated = supabase.table("route_events").select("id", count="exact").execute()
+
+        label_counts = {}
+        all_markers = supabase.table("ada_markers").select("label").execute()
+        for row in (all_markers.data or []):
+            label = row.get("label", "unknown")
+            label_counts[label] = label_counts.get(label, 0) + 1
+
+        return jsonify({
+            "unique_devices": unique_devices.count,
+            "returning_devices": returning_devices.count,
+            "total_markers_submitted": total_markers.count,
+            "routes_generated": routes_generated.count,
+            "markers_by_label": label_counts
+        })
     except Exception as e:
+        print(f"ERROR in stats: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":

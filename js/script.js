@@ -299,6 +299,10 @@ document.getElementById('routeBtn').addEventListener('click', () => {
   routeActive = true;
   document.getElementById('cancelRouteBtn').style.display = 'inline-block';
   showNearbyADAMarkers();
+
+  fetch('https://atharvcapricorn07-pathable.hf.space/track-route', {
+    method: 'POST'
+  }).catch(() => {});
 });
 
 document.getElementById('cancelRouteBtn').addEventListener('click', () => {
