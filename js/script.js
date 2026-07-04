@@ -326,17 +326,17 @@ const bugOverlay = document.getElementById('bugReportOverlay');
 const bugText = document.getElementById('bugReportText');
 
 document.getElementById('bugReportBtn').addEventListener('click', () => {
-  bugOverlay.style.display = 'flex';
+  bugOverlay.classList.add('show');
   bugText.value = '';
   bugText.focus();
 });
 
 document.getElementById('bugReportCancel').addEventListener('click', () => {
-  bugOverlay.style.display = 'none';
+  bugOverlay.classList.remove('show');
 });
 
 bugOverlay.addEventListener('click', (e) => {
-  if (e.target === bugOverlay) bugOverlay.style.display = 'none';
+  if (e.target === bugOverlay) bugOverlay.classList.remove('show');
 });
 
 document.getElementById('bugReportSubmit').addEventListener('click', async () => {
@@ -357,7 +357,7 @@ document.getElementById('bugReportSubmit').addEventListener('click', async () =>
       })
     });
     if (!res.ok) throw new Error('Request failed');
-    bugOverlay.style.display = 'none';
+    bugOverlay.classList.remove('show');
     showToast('Thanks! Bug report submitted.');
   } catch (e) {
     showToast('Could not submit report. Try again later.');

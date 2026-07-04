@@ -43,8 +43,10 @@ html, body {
   border-radius: 0 8px 8px 0; font-size: 16px;
   border-left: 1px solid #444; transition: background 0.2s; flex-shrink: 0;
   min-width: 44px;
+  display: flex; align-items: center; justify-content: center;
 }
 #useLocationBtn:hover { background: #3a3a4e; }
+#useLocationBtn svg { width: 18px; height: 18px; }
 
 /* endSearch takes the other half — same flex:1 as .input-group */
 #endSearch {
@@ -106,27 +108,11 @@ html, body {
 }
 #cancelRouteBtn:hover { background: rgba(50,50,70,0.95); }
 
-#fab {
-  position: fixed; top: 68px; right: max(12px, env(safe-area-inset-right));
-  z-index: 1000;
-  background: #0d9488; color: white; border: none;
-  border-radius: 50px; padding: 10px 16px; font-size: 13px; font-weight: 600;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.25); cursor: pointer;
-  display: flex; align-items: center; gap: 6px;
-  transition: background 0.2s, transform 0.1s;
-  min-height: 44px;
-}
-#fab:hover { background: #0f766e; }
-#fab:active { transform: scale(0.96); }
-
-#helpBtn {
+/* Shared style for the stacked utility buttons in the top-right corner */
+#fab, #helpBtn, #bugReportBtn {
   position: fixed;
-  top: 120px;
   right: max(12px, env(safe-area-inset-right));
   z-index: 1000;
-  background: #1a1a2e;
-  color: #5eead4;
-  border: 1px solid #444;
   border-radius: 50px;
   padding: 10px 16px;
   font-size: 13px;
@@ -138,9 +124,33 @@ html, body {
   gap: 6px;
   transition: background 0.2s, transform 0.1s;
   min-height: 44px;
+  white-space: nowrap;
+}
+
+#fab {
+  top: 68px;
+  background: #0d9488; color: white; border: none;
+}
+#fab:hover { background: #0f766e; }
+#fab:active { transform: scale(0.96); }
+
+#helpBtn {
+  top: 120px;
+  background: #1a1a2e;
+  color: #5eead4;
+  border: 1px solid #444;
 }
 #helpBtn:hover { background: #2a2a3e; }
 #helpBtn:active { transform: scale(0.96); }
+
+#bugReportBtn {
+  top: 172px;
+  background: #1a1a2e;
+  color: #ddd;
+  border: 1px solid #444;
+}
+#bugReportBtn:hover { background: #2a2a3e; }
+#bugReportBtn:active { transform: scale(0.96); }
 
 #toast {
   position: fixed;
@@ -195,6 +205,84 @@ html, body {
 .leaflet-routing-container { display: none !important; }
 .leaflet-control-zoom { display: none !important; }
 
+/* Bug report modal */
+#bugReportOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 3000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+#bugReportOverlay.show { display: flex; }
+
+.bug-modal {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 20px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+}
+.bug-modal h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+.bug-modal p {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  color: #999;
+  line-height: 1.4;
+}
+#bugReportText {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  background: #2a2a3e;
+  color: #eee;
+  outline: none;
+}
+#bugReportText::placeholder { color: #777; }
+.bug-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+#bugReportCancel {
+  background: #2a2a3e;
+  color: #ccc;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  min-height: 40px;
+}
+#bugReportCancel:hover { background: #3a3a4e; }
+#bugReportSubmit {
+  background: #0d9488;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 40px;
+}
+#bugReportSubmit:hover { background: #0f766e; }
+
 /* ── Mobile (≤ 480px) ── */
 @media (max-width: 480px) {
   #navbar {
@@ -210,6 +298,7 @@ html, body {
 
   #fab { top: 118px; font-size: 12px; padding: 8px 12px; }
   #helpBtn { top: 170px; font-size: 12px; padding: 8px 12px; }
+  #bugReportBtn { top: 222px; font-size: 12px; padding: 8px 12px; }
 
   #routeBtn {
     font-size: 14px; padding: 10px 22px;

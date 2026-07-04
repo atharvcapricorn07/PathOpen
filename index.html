@@ -21,7 +21,12 @@
   <div id="navbar">
     <div class="input-group">
       <input id="startSearch" type="text" placeholder="Start" autocomplete="off" />
-      <button id="useLocationBtn" title="Use my location">📍</button>
+      <button id="useLocationBtn" title="Use my location">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          <circle cx="12" cy="9" r="2.4" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+      </button>
     </div>
     <input id="endSearch" type="text" placeholder="End" autocomplete="off" />
   </div>
@@ -32,29 +37,29 @@
   <button id="routeBtn">Get Directions</button>
   <button id="cancelRouteBtn" style="display:none;">Cancel Route</button>
 
-  <button id="fab">📷 Report Feature</button>
-  <button id="bugReportBtn">🐛 Report Bug</button>
+  <button id="fab">Report Feature</button>
+  <button id="bugReportBtn">Report Bug</button>
 
   <a href="how-to-use.html">
-    <button id="helpBtn">❓ How To Use</button>
+    <button id="helpBtn">Help</button>
   </a>
 
   <!-- Location prompt banner (shown on page load instead of auto-requesting) -->
   <div id="locationBanner">
-    <span>📍 Enable location for better routing</span>
+    <span>Enable location for better routing</span>
     <button id="locationBannerBtn">Allow</button>
-    <button id="locationBannerDismiss">✕</button>
+    <button id="locationBannerDismiss">&#10005;</button>
   </div>
 
   <!-- Bug report modal -->
-  <div id="bugReportOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
-    <div style="background:#fff; border-radius:12px; padding:20px; width:85%; max-width:360px; box-shadow:0 4px 20px rgba(0,0,0,0.2);">
-      <h3 style="margin:0 0 10px 0; font-size:18px;">Report a Bug</h3>
-      <p style="margin:0 0 10px 0; font-size:13px; color:#555;">Tell us what went wrong. Be as specific as you can.</p>
-      <textarea id="bugReportText" rows="5" placeholder="e.g. The route button didn't respond when I tapped it near Green Lake" style="width:100%; box-sizing:border-box; border:1px solid #ccc; border-radius:8px; padding:8px; font-family:inherit; font-size:14px; resize:vertical;"></textarea>
-      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
-        <button id="bugReportCancel" style="background:#eee; border:none; border-radius:8px; padding:8px 14px; font-size:14px;">Cancel</button>
-        <button id="bugReportSubmit" style="background:#0f8f83; color:#fff; border:none; border-radius:8px; padding:8px 14px; font-size:14px;">Submit</button>
+  <div id="bugReportOverlay">
+    <div class="bug-modal">
+      <h3>Report a Bug</h3>
+      <p>Tell us what went wrong. Be as specific as you can.</p>
+      <textarea id="bugReportText" rows="5" placeholder="Example: The route button didn't respond when I tapped it near Green Lake"></textarea>
+      <div class="bug-modal-actions">
+        <button id="bugReportCancel">Cancel</button>
+        <button id="bugReportSubmit">Submit</button>
       </div>
     </div>
   </div>
