@@ -257,6 +257,20 @@ def track_route():
         print(f"ERROR in track_route: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/bugs")
+def bugs():
+    try:
+        result = (
+            supabase.table("bug_reports")
+            .select("id, created_at, message, device_id, page_url, user_agent")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return jsonify(result.data)
+    except Exception as e:
+        print(f"ERROR in bugs: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/stats")
 def stats():
     try:
