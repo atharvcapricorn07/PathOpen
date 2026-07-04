@@ -321,6 +321,49 @@ document.getElementById('fab').addEventListener('click', () => {
   window.location.href = 'html/ai.html';
 });
 
+// --- Bug report modal ---
+const bugOverlay = document.getElementById('bugReportOverlay');
+const bugText = document.getElementById('bugReportText');
+
+document.getElementById('bugReportBtn').addEventListener('click', () => {
+  bugOverlay.style.display = 'flex';
+  bugText.value = '';
+  bugText.focus();
+});
+
+document.getElementById('bugReportCancel').addEventListener('click', () => {
+  bugOverlay.style.display = 'none';
+});
+
+bugOverlay.addEventListener('click', (e) => {
+  if (e.target === bugOverlay) bugOverlay.style.display = 'none';
+});
+
+document.getElementById('bugReportSubmit').addEventListener('click', async () => {
+  const message = bugText.value.trim();
+  if (!message) {
+    showToast('Please describe the issue first.');
+    return;
+  }
+  try {
+    const res = await fetch('https://atharvcapricorn07-pathable.hf.space/report-bug', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_id: getDeviceId(),
+        message,
+        page_url: window.location.href,
+        user_agent: navigator.userAgent
+      })
+    });
+    if (!res.ok) throw new Error('Request failed');
+    bugOverlay.style.display = 'none';
+    showToast('Thanks! Bug report submitted.');
+  } catch (e) {
+    showToast('Could not submit report. Try again later.');
+  }
+});
+
 async function showNearbyADAMarkers() {
   if (!dest) return;
   const [lat, lng] = dest;

@@ -223,6 +223,31 @@ def track_device():
         print(f"ERROR in track_device: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/report-bug", methods=["POST"])
+def report_bug():
+    try:
+        data = request.get_json(silent=True) or {}
+        message = (data.get("message") or "").strip()
+        device_id = data.get("device_id", "")
+        page_url = data.get("page_url", "")
+        user_agent = data.get("user_agent", "")
+
+        if not message:
+            return jsonify({"error": "message is required"}), 400
+
+        supabase.table("bug_reports").insert({
+            "device_id": device_id,
+            "message": message,
+            "page_url": page_url,
+            "user_agent": user_agent
+        }).execute()
+
+        return jsonify({"success": True})
+
+    except Exception as e:
+        print(f"ERROR in report_bug: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/track-route", methods=["POST"])
 def track_route():
     try:
@@ -248,6 +273,8 @@ def stats():
 
         routes_generated = supabase.table("route_events").select("id", count="exact").execute()
 
+        bug_reports = supabase.table("bug_reports").select("id", count="exact").execute()
+
         label_counts = {}
         all_markers = supabase.table("ada_markers").select("label").execute()
         for row in (all_markers.data or []):
@@ -259,6 +286,7 @@ def stats():
             "returning_devices": returning_devices.count,
             "total_markers_submitted": total_markers.count,
             "routes_generated": routes_generated.count,
+            "bug_reports": bug_reports.count,
             "markers_by_label": label_counts
         })
     except Exception as e:
