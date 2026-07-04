@@ -12,3 +12,19 @@ print('markers by label:')
 for label, count in d['markers_by_label'].items():
     print(f'  {label}: {count}')
 "
+
+echo ""
+echo "--- bug reports ---"
+curl -s https://atharvcapricorn07-pathable.hf.space/bugs | python3 -c "
+import json, sys
+bugs = json.load(sys.stdin)
+if not bugs:
+    print('  none yet')
+else:
+    for b in bugs:
+        print(f\"  [{b['created_at']}] {b['message']}\")
+        print(f\"    device: {b['device_id']}\")
+        print(f\"    page: {b['page_url']}\")
+        print(f\"    agent: {b['user_agent']}\")
+        print()
+"
