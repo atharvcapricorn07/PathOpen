@@ -285,3 +285,15 @@ h3 {
   .marker-row { flex-direction: column; align-items: stretch; }
   .marker-row button { width: 100%; height: 38px; }
 }
+
+/* ---- Copyright ---- */
+
+.copyright {
+  text-align: center;
+  margin-top: 22px;
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--slate-light);
+}
