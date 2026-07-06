@@ -1,231 +1,271 @@
 :root {
-  --bg: #f6f4ee;
-  --card: #ffffff;
-  --primary: #0f8f83;
-  --primary-dark: #0b6d63;
-  --secondary: #2d3748;
-  --border: #dfe5df;
-  --text: #24323d;
-  --muted: #6b7280;
-  --danger: #ef4444;
-  --shadow: 0 8px 24px rgba(0,0,0,0.08);
+  --ink: #101827;
+  --ink-2: #1B2436;
+  --slate: #5B6472;
+  --slate-light: #8891A0;
+  --mist: #F3F5F7;
+  --line: #E2E6EB;
+  --white: #FFFFFF;
+
+  --signal: #2454E8;
+  --signal-dark: #1B3EB8;
+  --signal-tint: #E8EEFD;
+
+  --ochre: #B5792A;
+  --ochre-tint: #F7ECDC;
+
+  --coral: #D1483B;
+  --coral-tint: #FBEAE8;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 2px 8px rgba(16,24,39,0.08);
+  --shadow-md: 0 10px 30px rgba(16,24,39,0.12);
+
+  --font-ui: 'Public Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
-  padding: 30px;
-  font-family: Inter, "Segoe UI", sans-serif;
-  background: var(--bg);
-  color: var(--text);
+  padding: 32px 20px 48px;
+  font-family: var(--font-ui);
+  background: var(--mist);
+  color: var(--ink);
 }
 
 .container {
-  max-width: 1100px;
+  max-width: 900px;
   margin: auto;
-  background: var(--card);
-  border-radius: 24px;
-  padding: 30px;
-  box-shadow: var(--shadow);
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  box-shadow: var(--shadow-sm);
 }
 
 h1 {
-  margin-top: 0;
+  margin: 4px 0 6px;
   text-align: center;
-  font-size: 2rem;
-  color: var(--secondary);
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--ink);
 }
 
 .subtitle {
   text-align: center;
-  color: var(--muted);
-  margin-bottom: 24px;
+  color: var(--slate);
+  font-size: 14.5px;
+  margin-bottom: 26px;
+}
+
+/* ---- File upload ---- */
+
+.upload-zone {
+  border: 1.5px dashed var(--line);
+  background: var(--mist);
+  border-radius: var(--radius-md);
+  padding: 22px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.upload-zone:has(input:focus-visible) {
+  border-color: var(--signal);
 }
 
 input[type="file"] {
   width: 100%;
-  border: 2px dashed var(--border);
-  background: #fafaf7;
-  padding: 20px;
-  border-radius: 16px;
+  color: var(--slate);
+  font-family: var(--font-ui);
+  font-size: 13.5px;
   cursor: pointer;
-  color: var(--muted);
 }
 
 input[type="file"]::file-selector-button {
-  background: var(--primary);
-  color: white;
+  background: var(--ink);
+  color: var(--white);
   border: none;
-  border-radius: 10px;
-  padding: 10px 16px;
-  margin-right: 12px;
+  border-radius: var(--radius-sm);
+  padding: 10px 18px;
+  margin-right: 14px;
   cursor: pointer;
-  font-weight: 600;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 13.5px;
+  transition: background 0.15s;
 }
-
-input[type="file"]::file-selector-button:hover {
-  background: var(--primary-dark);
-}
+input[type="file"]::file-selector-button:hover { background: var(--ink-2); }
 
 #preview {
   width: 100%;
-  max-height: 450px;
+  max-height: 420px;
   object-fit: cover;
   margin-top: 20px;
-  border-radius: 16px;
-  box-shadow: var(--shadow);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
+
+/* ---- Mini map ---- */
 
 #map {
-  height: 500px;
+  height: 440px;
   margin-top: 24px;
-  border-radius: 18px;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  border: 2px solid var(--border);
+  border: 1.5px solid var(--line);
 }
 
-#markerList {
-  margin-top: 24px;
+/* ---- Detected features list ---- */
+
+h3 {
+  margin: 28px 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--slate);
 }
+
+#markerList { margin-top: 0; }
 
 .marker-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px;
-  margin-bottom: 10px;
-  background: #fafaf7;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 9px;
+  background: var(--mist);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
 }
 
 .marker-row select {
   flex: 1;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px;
-  font-size: 14px;
-  background: white;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-weight: 500;
+  background: var(--white);
+  color: var(--ink);
+  outline: none;
 }
+.marker-row select:focus { border-color: var(--signal); }
 
 .marker-row button {
-  background: var(--danger);
-  color: white;
+  background: var(--coral-tint);
+  color: var(--coral);
   border: none;
-  border-radius: 10px;
-  width: 40px;
-  height: 40px;
+  border-radius: var(--radius-sm);
+  width: 38px;
+  height: 38px;
   cursor: pointer;
+  font-size: 15px;
+  flex-shrink: 0;
+  transition: background 0.15s;
 }
-
-.marker-row button:hover {
-  opacity: 0.9;
-}
+.marker-row button:hover { background: #F5D6D2; }
 
 #addMarkerBtn {
-  margin-top: 10px;
-  background: var(--primary);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  padding: 12px 18px;
-  font-weight: 600;
+  margin-top: 4px;
+  background: var(--white);
+  color: var(--signal-dark);
+  border: 1.5px solid var(--signal-tint);
+  border-radius: var(--radius-sm);
+  padding: 11px 18px;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 13.5px;
   cursor: pointer;
+  transition: background 0.15s;
 }
+#addMarkerBtn:hover { background: var(--signal-tint); }
 
-#addMarkerBtn:hover {
-  background: var(--primary-dark);
-}
+/* ---- Save / status ---- */
 
 #saveButton {
   display: block;
-  margin: 24px auto 0;
-  padding: 14px 28px;
-  background: var(--primary);
-  color: white;
+  margin: 26px auto 0;
+  padding: 14px 32px;
+  background: var(--signal);
+  color: var(--white);
   border: none;
-  border-radius: 14px;
-  font-size: 1rem;
-  font-weight: 600;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 700;
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.15s;
 }
-
-#saveButton:hover {
-  background: var(--primary-dark);
-}
+#saveButton:hover { background: var(--signal-dark); }
 
 #status {
   text-align: center;
-  margin-top: 20px;
+  margin-top: 18px;
+  font-family: var(--font-ui);
   font-weight: 600;
-  color: var(--primary);
+  font-size: 13.5px;
+  color: var(--slate);
+  min-height: 18px;
 }
+#status.status-error { color: var(--coral); }
+
+/* ---- Home button ---- */
 
 .home-button-wrapper {
-  margin-bottom: 20px;
+  max-width: 900px;
+  margin: 0 auto 18px;
 }
 
 .home-button {
-  background: white;
-  border: 1px solid var(--border);
-  color: var(--secondary);
-  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--white);
+  border: 1.5px solid var(--line);
+  color: var(--ink);
+  border-radius: var(--radius-pill);
   padding: 10px 18px;
   cursor: pointer;
-  font-weight: 600;
-  box-shadow: var(--shadow);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 13.5px;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.15s;
 }
+.home-button:hover { background: var(--mist); }
+.home-button svg { width: 16px; height: 16px; }
 
-.home-button:hover {
-  background: #f8faf8;
-}
+/* ---- Map markers (mini editor + main map share this class) ---- */
 
 .marker-label {
-  background: var(--primary);
-  color: white;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 13px;
+  background: var(--signal);
+  color: var(--white);
+  padding: 6px 13px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
   font-weight: 600;
   white-space: nowrap;
-  box-shadow: 0 4px 10px rgba(15,143,131,.25);
+  box-shadow: 0 3px 10px rgba(36,84,232,0.28);
 }
 
-.image-overlay {
-  position: absolute;
-  width: 220px;
-  border-radius: 14px;
-  border: 3px solid white;
-  box-shadow: var(--shadow);
-  pointer-events: none;
-}
-
-.fade-in {
-  opacity: 1;
-}
-
-.fade-out {
-  opacity: 0;
+.leaflet-div-icon {
+  background: transparent;
+  border: none;
 }
 
 @media (max-width: 768px) {
-  body {
-    padding: 15px;
-  }
-
-  .container {
-    padding: 20px;
-  }
-
-  #map {
-    height: 400px;
-  }
-
-  .marker-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
+  body { padding: 20px 14px 40px; }
+  .container { padding: 22px; }
+  .home-button-wrapper { padding: 0 2px; }
+  #map { height: 340px; }
+  .marker-row { flex-direction: column; align-items: stretch; }
+  .marker-row button { width: 100%; height: 38px; }
 }

@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#0f8f83">
+  <meta name="theme-color" content="#101827">
 </head>
 <body>
 
@@ -22,9 +22,9 @@
     <div class="input-group">
       <input id="startSearch" type="text" placeholder="Start" autocomplete="off" />
       <button id="useLocationBtn" title="Use my location">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-          <circle cx="12" cy="9" r="2.4" stroke="currentColor" stroke-width="1.6"/>
+        <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M11 2c-3.3 0-6 2.7-6 6 0 4.5 6 11 6 11s6-6.5 6-11c0-3.3-2.7-6-6-6z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+          <circle cx="11" cy="8" r="2.2" stroke="currentColor" stroke-width="1.75"/>
         </svg>
       </button>
     </div>
@@ -37,12 +37,33 @@
   <button id="routeBtn">Get Directions</button>
   <button id="cancelRouteBtn" style="display:none;">Cancel Route</button>
 
-  <button id="fab">Report Feature</button>
-  <button id="bugReportBtn">Report Bug</button>
-
-  <a href="how-to-use.html">
-    <button id="helpBtn">Help</button>
-  </a>
+  <!-- Unified action rail: same size, same shape, one component -->
+  <div class="action-rail">
+    <button id="fab" class="rail-btn">
+      <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 7.5c0-.83.67-1.5 1.5-1.5h2l1-1.5h7l1 1.5h2c.83 0 1.5.67 1.5 1.5v9c0 .83-.67 1.5-1.5 1.5h-13C3.67 18 3 17.33 3 16.5v-9z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <circle cx="11" cy="11.4" r="3.1" stroke="currentColor" stroke-width="1.6"/>
+      </svg>
+      Report Feature
+    </button>
+    <button id="bugReportBtn" class="rail-btn is-ochre">
+      <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M5 2.5v17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M5 3.5h9l-2 3.5 2 3.5H5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      </svg>
+      Report Bug
+    </button>
+    <a href="how-to-use.html" class="rail-link">
+      <button id="helpBtn" class="rail-btn">
+        <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="11" cy="11" r="8.25" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M8.5 8.6c.25-1.4 1.5-2.25 2.85-2.05 1.35.2 2.3 1.25 2.1 2.55-.15.95-.85 1.4-1.5 1.85-.55.4-1.05.75-1.15 1.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <circle cx="11" cy="15" r="0.95" fill="currentColor" stroke="none"/>
+        </svg>
+        Help
+      </button>
+    </a>
+  </div>
 
   <!-- Location prompt banner (shown on page load instead of auto-requesting) -->
   <div id="locationBanner">
@@ -54,7 +75,13 @@
   <!-- Bug report modal -->
   <div id="bugReportOverlay">
     <div class="bug-modal">
-      <h3>Report a Bug</h3>
+      <div class="bug-modal-icon">
+        <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M5 2.5v17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M5 3.5h9l-2 3.5 2 3.5H5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h3>Report a bug</h3>
       <p>Tell us what went wrong. Be as specific as you can.</p>
       <textarea id="bugReportText" rows="5" placeholder="Example: The route button didn't respond when I tapped it near Green Lake"></textarea>
       <div class="bug-modal-actions">

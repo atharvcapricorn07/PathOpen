@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PathAble AI Accessibility Scanner</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
   <link rel="stylesheet" href="../css/ai.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
@@ -11,23 +12,27 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.55);
+      background: rgba(16,24,39,0.6);
       z-index: 9999;
       align-items: center;
       justify-content: center;
+      padding: 16px;
     }
     #dupModal.open { display: flex; }
     #dupModalBox {
-      background: white;
+      background: var(--white);
       border-radius: 20px;
       padding: 28px 24px;
       max-width: 360px;
       width: 90%;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      box-shadow: 0 20px 60px rgba(16,24,39,0.3);
       text-align: center;
     }
-    #dupModalBox h3 { margin: 0 0 6px; font-size: 1.1rem; color: #1a202c; }
-    #dupModalBox p  { margin: 0 0 16px; font-size: 0.9rem; color: #4a5568; line-height: 1.4; }
+    #dupModalBox h3 {
+      margin: 0 0 6px; font-size: 1.05rem; font-weight: 700; color: var(--ink);
+      text-transform: none; letter-spacing: normal;
+    }
+    #dupModalBox p  { margin: 0 0 16px; font-size: 0.9rem; color: var(--slate); line-height: 1.5; }
     #dupExistingImg {
       width: 100%;
       max-height: 180px;
@@ -38,12 +43,12 @@
     }
     #dupExistingLabel {
       display: inline-block;
-      background: #0f8f83;
-      color: white;
-      padding: 5px 14px;
+      background: var(--ochre-tint);
+      color: var(--ochre);
+      padding: 6px 14px;
       border-radius: 999px;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
       margin-bottom: 20px;
     }
     .dup-btn-row { display: flex; gap: 10px; }
@@ -52,26 +57,33 @@
       padding: 12px;
       border: none;
       border-radius: 12px;
-      font-size: 0.95rem;
-      font-weight: 600;
+      font-family: var(--font-ui);
+      font-size: 0.9rem;
+      font-weight: 700;
       cursor: pointer;
+      transition: background 0.15s;
     }
-    #dupYesBtn { background: #e2e8f0; color: #2d3748; }
-    #dupNoBtn  { background: #0f8f83; color: white; }
-    #dupYesBtn:hover { background: #cbd5e0; }
-    #dupNoBtn:hover  { background: #0b6d63; }
+    #dupYesBtn { background: var(--mist); color: var(--ink); }
+    #dupYesBtn:hover { background: var(--line); }
+    #dupNoBtn  { background: var(--signal); color: var(--white); }
+    #dupNoBtn:hover  { background: var(--signal-dark); }
   </style>
 </head>
 
 <body>
 
   <div class="home-button-wrapper">
-    <button class="home-button" onclick="location.href='../index.html'">← Back to Map</button>
+    <button class="home-button" onclick="location.href='../index.html'">
+      <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M13.5 4.5L7 11l6.5 6.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Back to map
+    </button>
   </div>
 
   <div id="dupModal">
     <div id="dupModalBox">
-      <h3>Possible Duplicate</h3>
+      <h3>Possible duplicate</h3>
       <p id="dupModalDesc">A similar tag already exists nearby. Is this the same thing?</p>
       <img id="dupExistingImg" alt="Existing marker photo" />
       <div id="dupExistingLabel"></div>
@@ -86,16 +98,18 @@
     <h1>ADA Accessibility Scanner</h1>
     <p class="subtitle">Upload a photo, review detected accessibility features, adjust marker locations, and save them to the map.</p>
 
-    <input type="file" id="imageInput" accept="image/*" />
+    <div class="upload-zone">
+      <input type="file" id="imageInput" accept="image/*" />
+    </div>
     <img id="preview" alt="Uploaded Preview" style="display:none;" />
     <div id="map"></div>
 
     <h3>Detected Features</h3>
     <div id="markerList"></div>
 
-    <button id="addMarkerBtn" style="display:none;">+ Add Feature Marker</button>
+    <button id="addMarkerBtn" style="display:none;">+ Add feature marker</button>
     <div id="status"></div>
-    <button id="saveButton">Save and Return</button>
+    <button id="saveButton">Save and return</button>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -145,7 +159,7 @@
         initMap(filtered);
       } catch (e) {
         console.error(e);
-        setStatus("Error analyzing image. Please try again.");
+        setStatus("Error analyzing image. Please try again.", true);
       }
     });
 
@@ -344,15 +358,17 @@
       if (errorCount   > 0) parts.push(`${errorCount} failed`);
 
       if (errorCount > 0 && savedCount === 0 && skippedCount === 0) {
-        setStatus("Error saving markers. Please try again.");
+        setStatus("Error saving markers. Please try again.", true);
       } else {
         setStatus(parts.join(', ') + '.');
         setTimeout(() => { window.location.href = "../index.html"; }, 1500);
       }
     });
 
-    function setStatus(msg) {
-      document.getElementById("status").textContent = msg;
+    function setStatus(msg, isError) {
+      const el = document.getElementById("status");
+      el.textContent = msg;
+      el.classList.toggle("status-error", !!isError);
     }
   </script>
 

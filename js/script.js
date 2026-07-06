@@ -294,7 +294,7 @@ document.getElementById('routeBtn').addEventListener('click', () => {
     routeWhileDragging: false,
     draggableWaypoints: false,
     showAlternatives: false,
-    lineOptions: { styles: [{ color: '#0d9488', weight: 4 }] }
+    lineOptions: { styles: [{ color: '#2454E8', weight: 4 }] }
   }).addTo(map);
   routeActive = true;
   document.getElementById('cancelRouteBtn').style.display = 'inline-block';
