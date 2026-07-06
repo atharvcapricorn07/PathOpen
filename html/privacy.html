@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Privacy Policy — PathAble</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F3F5F7">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root {
+    --ink: #101827; --ink-2: #1B2436; --slate: #5B6472; --slate-light: #8891A0;
+    --mist: #F3F5F7; --line: #E2E6EB; --white: #FFFFFF;
+    --signal: #2454E8; --signal-dark: #1B3EB8; --signal-tint: #E8EEFD;
+    --glass-strong: rgba(255,255,255,0.9); --glass-border: rgba(255,255,255,0.55);
+    --glass-blur: blur(22px) saturate(180%);
+    --radius-md: 16px; --radius-lg: 24px; --radius-pill: 999px;
+    --shadow-float: 0 10px 34px rgba(16,24,39,0.14), 0 1px 3px rgba(16,24,39,0.06);
+    --shadow-soft: 0 4px 16px rgba(16,24,39,0.07);
+    --ease: cubic-bezier(0.22, 0.8, 0.2, 1);
+    --font-ui: 'Public Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0 0 60px; background: var(--mist); font-family: var(--font-ui); color: var(--ink); }
+
+  .home-button-wrapper { position: fixed; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); z-index: 1000; }
+  .home-button {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--glass-strong); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border); color: var(--ink); text-decoration: none;
+    border-radius: var(--radius-pill); padding: 11px 18px; cursor: pointer;
+    font-weight: 700; font-size: 13.5px; box-shadow: var(--shadow-float);
+    transition: background 0.15s, transform 0.15s var(--ease);
+  }
+  .home-button:hover { background: var(--white); }
+  .home-button:active { transform: scale(0.96); }
+  .home-button svg { width: 16px; height: 16px; }
+
+  header { padding: 84px 24px 30px; text-align: center; max-width: 720px; margin: 0 auto; }
+  header h1 { margin: 0 0 8px; font-size: clamp(24px, 5vw, 32px); font-weight: 800; letter-spacing: -0.01em; }
+  header p { margin: 0; font-size: 14px; color: var(--slate); font-weight: 500; }
+
+  main { max-width: 700px; margin: 0 auto; padding: 0 20px; }
+  .card { background: var(--white); border-radius: var(--radius-lg); padding: 30px 28px; box-shadow: var(--shadow-soft); }
+  .card h2 { font-size: 16px; font-weight: 700; margin: 28px 0 10px; }
+  .card h2:first-child { margin-top: 0; }
+  .card p, .card li { font-size: 14.5px; line-height: 1.65; color: var(--slate); margin: 0 0 10px; }
+  .card ul { margin: 0 0 10px; padding-left: 20px; }
+  .card strong { color: var(--ink); }
+  .card a { color: var(--signal-dark); font-weight: 600; text-decoration: none; }
+  .card a:hover { text-decoration: underline; }
+
+  @media (max-width: 480px) {
+    header { padding: 76px 18px 24px; }
+    .card { padding: 24px 20px; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="home-button-wrapper">
+    <a href="index.html" class="home-button">
+      <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M13.5 4.5L7 11l6.5 6.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Back to map
+    </a>
+  </div>
+
+  <header>
+    <h1>Privacy Policy</h1>
+    <p>Effective date: [insert date] &nbsp;·&nbsp; Last updated: [insert date]</p>
+  </header>
+
+  <main>
+    <div class="card">
+      <h2>Overview</h2>
+      <p>PathAble ("we," "our," or "us") helps people find and navigate accessible routes, using accessibility information contributed by our community and analyzed by automated tools. This Privacy Policy explains what information we collect, how we use it, and the choices you have.</p>
+
+      <h2>Information We Collect</h2>
+      <ul>
+        <li><strong>Device identifier:</strong> a randomly generated ID stored on your device to distinguish new from returning users. It is not tied to your name or email.</li>
+        <li><strong>Location data:</strong> if you grant permission, we use your device's location to show your position on the map and calculate accessible routes. You can deny or revoke this at any time in your browser or device settings.</li>
+        <li><strong>Photos you upload:</strong> images submitted through the accessibility scanner are analyzed (including by automated AI models) to detect features like ramps, stairs, elevators, and curb cuts, and may be stored and displayed to other users as part of a map marker.</li>
+        <li><strong>Bug reports and feedback:</strong> any text, page, and technical details (such as browser/user-agent) you submit when reporting a bug or feature.</li>
+        <li><strong>Basic usage data:</strong> aggregate, non-identifying statistics such as number of markers submitted or routes generated, used to monitor and improve the service.</li>
+      </ul>
+
+      <h2>How We Use Information</h2>
+      <ul>
+        <li>To display accessibility markers and calculate routes on the map</li>
+        <li>To run automated analysis on uploaded photos to detect accessibility features</li>
+        <li>To identify and remove duplicate or inaccurate submissions</li>
+        <li>To respond to bug reports and improve the app</li>
+        <li>To generate aggregate usage statistics</li>
+      </ul>
+
+      <h2>How Information Is Shared</h2>
+      <p>We do not sell your information. Data is processed by third-party infrastructure providers who help us run the service, including hosting, database, and AI-inference providers, as well as map-tile and address-search providers. These providers process data on our behalf and are bound by their own privacy and security practices.</p>
+      <p>Photos and accessibility markers you submit are, by the nature of the app, visible to other users of PathAble, since the goal is to share accessibility information with the community.</p>
+
+      <h2>Data Retention</h2>
+      <p>Submitted markers and photos are retained to keep accessibility information useful for other users. You may request deletion of content you submitted by contacting us using the details below.</p>
+
+      <h2>Your Choices</h2>
+      <ul>
+        <li>You can deny location access and still use manual search/routing features.</li>
+        <li>You can request that a photo or marker you submitted be reviewed or removed.</li>
+        <li>You can stop using the app at any time; your device identifier is not linked to any other personal account by default.</li>
+      </ul>
+
+      <h2>Children's Privacy</h2>
+      <p>PathAble is not directed at children under 13, and we do not knowingly collect information from children under 13. If you believe a child has provided us information, please contact us so we can remove it.</p>
+
+      <h2>Security</h2>
+      <p>We use reasonable technical measures to protect information submitted to PathAble. No method of transmission or storage is 100% secure, and we cannot guarantee absolute security.</p>
+
+      <h2>Changes to This Policy</h2>
+      <p>We may update this Privacy Policy from time to time. Continued use of PathAble after changes are posted constitutes acceptance of the updated policy.</p>
+
+      <h2>Contact</h2>
+      <p>Questions about this policy or your data can be sent to <a href="mailto:pathableinfo@gmail.com">pathableinfo@gmail.com</a>.</p>
+    </div>
+  </main>
+
+</body>
+</html>

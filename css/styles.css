@@ -237,6 +237,52 @@ html, body {
 
 a.rail-link { display: block; text-decoration: none; }
 
+/* ---------------- Zoom controls ---------------- */
+
+.zoom-controls {
+  position: fixed;
+  top: 50%;
+  right: max(14px, env(safe-area-inset-right));
+  transform: translateY(-50%);
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+}
+
+.zoom-btn {
+  all: unset;
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s var(--ease);
+}
+.zoom-btn:hover { background: rgba(36,84,232,0.1); }
+.zoom-btn:active { transform: scale(0.9); }
+.zoom-btn svg { width: 18px; height: 18px; }
+
+.zoom-divider {
+  height: 1px;
+  background: rgba(16,24,39,0.08);
+  margin: 0 8px;
+}
+
+@media (max-width: 480px) {
+  .zoom-controls { top: auto; bottom: 100px; transform: none; }
+  .zoom-btn { width: 40px; height: 40px; }
+}
+
 /* ---------------- Toast ---------------- */
 
 #toast {
@@ -424,6 +470,12 @@ a.rail-link { display: block; text-decoration: none; }
   padding: 3px 8px;
   border-radius: var(--radius-sm);
 }
+.copyright a {
+  pointer-events: auto;
+  color: rgba(16, 24, 39, 0.55);
+  text-decoration: underline;
+}
+.copyright a:hover { color: var(--signal); }
 
 /* ---------------- Mobile (≤ 480px) ---------------- */
 

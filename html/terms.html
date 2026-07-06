@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Terms of Service — PathAble</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F3F5F7">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root {
+    --ink: #101827; --ink-2: #1B2436; --slate: #5B6472; --slate-light: #8891A0;
+    --mist: #F3F5F7; --line: #E2E6EB; --white: #FFFFFF;
+    --signal: #2454E8; --signal-dark: #1B3EB8; --signal-tint: #E8EEFD;
+    --coral: #D1483B; --coral-tint: #FBEAE8;
+    --glass-strong: rgba(255,255,255,0.9); --glass-border: rgba(255,255,255,0.55);
+    --glass-blur: blur(22px) saturate(180%);
+    --radius-md: 16px; --radius-lg: 24px; --radius-pill: 999px;
+    --shadow-float: 0 10px 34px rgba(16,24,39,0.14), 0 1px 3px rgba(16,24,39,0.06);
+    --shadow-soft: 0 4px 16px rgba(16,24,39,0.07);
+    --ease: cubic-bezier(0.22, 0.8, 0.2, 1);
+    --font-ui: 'Public Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0 0 60px; background: var(--mist); font-family: var(--font-ui); color: var(--ink); }
+
+  .home-button-wrapper { position: fixed; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); z-index: 1000; }
+  .home-button {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--glass-strong); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border); color: var(--ink); text-decoration: none;
+    border-radius: var(--radius-pill); padding: 11px 18px; cursor: pointer;
+    font-weight: 700; font-size: 13.5px; box-shadow: var(--shadow-float);
+    transition: background 0.15s, transform 0.15s var(--ease);
+  }
+  .home-button:hover { background: var(--white); }
+  .home-button:active { transform: scale(0.96); }
+  .home-button svg { width: 16px; height: 16px; }
+
+  header { padding: 84px 24px 30px; text-align: center; max-width: 720px; margin: 0 auto; }
+  header h1 { margin: 0 0 8px; font-size: clamp(24px, 5vw, 32px); font-weight: 800; letter-spacing: -0.01em; }
+  header p { margin: 0; font-size: 14px; color: var(--slate); font-weight: 500; }
+
+  main { max-width: 700px; margin: 0 auto; padding: 0 20px; }
+  .card { background: var(--white); border-radius: var(--radius-lg); padding: 30px 28px; box-shadow: var(--shadow-soft); }
+  .card h2 { font-size: 16px; font-weight: 700; margin: 28px 0 10px; }
+  .card h2:first-child { margin-top: 0; }
+  .card p, .card li { font-size: 14.5px; line-height: 1.65; color: var(--slate); margin: 0 0 10px; }
+  .card ul { margin: 0 0 10px; padding-left: 20px; }
+  .card strong { color: var(--ink); }
+  .card a { color: var(--signal-dark); font-weight: 600; text-decoration: none; }
+  .card a:hover { text-decoration: underline; }
+
+  .callout {
+    background: var(--coral-tint);
+    border-radius: var(--radius-md);
+    padding: 16px 18px;
+    margin: 10px 0 20px;
+  }
+  .callout p { color: var(--ink); font-weight: 600; margin: 0; font-size: 14px; }
+
+  @media (max-width: 480px) {
+    header { padding: 76px 18px 24px; }
+    .card { padding: 24px 20px; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="home-button-wrapper">
+    <a href="index.html" class="home-button">
+      <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M13.5 4.5L7 11l6.5 6.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Back to map
+    </a>
+  </div>
+
+  <header>
+    <h1>Terms of Service</h1>
+    <p>Effective date: July 6th, 2026 &nbsp;·&nbsp; Last updated: July 6th, 2026</p>
+  </header>
+
+  <main>
+    <div class="card">
+      <h2>Acceptance of Terms</h2>
+      <p>By accessing or using PathAble (the "Service"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.</p>
+
+      <h2>Description of Service</h2>
+      <p>PathAble is a community-driven accessibility mapping and navigation tool. Accessibility information shown in the app is contributed by users and processed by automated tools, and is provided for informational purposes only.</p>
+
+      <div class="callout">
+        <p>PathAble is not a substitute for professional accessibility assessment. Accessibility information may be incomplete, outdated, or inaccurate. Always exercise your own judgment and caution when navigating real-world locations, and do not rely solely on PathAble for decisions affecting your physical safety.</p>
+      </div>
+
+      <h2>User Contributions</h2>
+      <p>When you upload photos, mark accessibility features, or submit feedback, you represent that you have the right to share that content and that it does not infringe on anyone else's rights. You grant PathAble a non-exclusive, worldwide, royalty-free license to use, display, store, and analyze content you submit for the purpose of operating and improving the Service.</p>
+      <p>We may remove, edit, or decline to publish any submitted content, including content that is inaccurate, harmful, or violates these Terms, at our discretion.</p>
+
+      <h2>Prohibited Conduct</h2>
+      <ul>
+        <li>Submitting false, misleading, or spam accessibility markers</li>
+        <li>Uploading illegal, harmful, or infringing content</li>
+        <li>Attempting to abuse, overload, or disrupt the Service or its infrastructure</li>
+        <li>Scraping or extracting data from the Service without permission</li>
+        <li>Attempting to bypass any security or rate-limiting measures</li>
+      </ul>
+
+      <h2>Disclaimer of Warranties</h2>
+      <p>The Service is provided "as is" and "as available," without warranties of any kind, whether express or implied, including but not limited to accuracy, completeness, availability, or fitness for a particular purpose.</p>
+
+      <h2>Limitation of Liability</h2>
+      <p>To the fullest extent permitted by law, PathAble and its creator(s) shall not be liable for any indirect, incidental, special, or consequential damages, or for any injury, loss, or damage arising from your use of, or reliance on, the Service or any accessibility information it provides, including reliance on route or accessibility-feature data that proves to be inaccurate or outdated.</p>
+
+      <h2>Termination</h2>
+      <p>We may suspend or terminate your access to the Service at any time, without notice, for conduct that violates these Terms or is otherwise harmful to other users or the Service.</p>
+
+      <h2>Changes to These Terms</h2>
+      <p>We may update these Terms from time to time. Continued use of the Service after changes are posted constitutes acceptance of the updated Terms.</p>
+
+      <h2>Governing Law</h2>
+      <p>These Terms are governed by the laws of Washington, United States, without regard to conflict-of-law principles.</p>
+
+      <h2>Contact</h2>
+      <p>Questions about these Terms can be sent to <a href="mailto:pathableinfo@gmail.com">pathableinfo@gmail.com</a>.</p>
+    </div>
+  </main>
+
+</body>
+</html>

@@ -283,6 +283,10 @@ document.getElementById('useLocationBtn').addEventListener('click', () => {
   requestLocation();
 });
 
+// --- Zoom controls ---
+document.getElementById('zoomInBtn').addEventListener('click', () => map.zoomIn());
+document.getElementById('zoomOutBtn').addEventListener('click', () => map.zoomOut());
+
 // --- Routing ---
 document.getElementById('routeBtn').addEventListener('click', () => {
   if (!start) return showToast('Set a start location first.');
@@ -366,11 +370,25 @@ document.getElementById('bugReportSubmit').addEventListener('click', async () =>
 
 async function showNearbyADAMarkers() {
   if (!dest) return;
+
+  // Clear markers from any previous route before loading the new set —
+  // otherwise markers from past destinations stick around and pile up.
+  adaMarkers.forEach(m => map.removeLayer(m));
+  adaMarkers = [];
+
   const [lat, lng] = dest;
+  const RADIUS_METERS = 804; // ~0.5 miles
+
   try {
-    const res = await fetch(`https://atharvcapricorn07-pathable.hf.space/markers?lat=${lat}&lng=${lng}&radius=804`);
+    const res = await fetch(`https://atharvcapricorn07-pathable.hf.space/markers?lat=${lat}&lng=${lng}&radius=${RADIUS_METERS}`);
     const markers = await res.json();
-    markers.forEach(markerData => {
+
+    // Client-side safety filter: only render markers actually within the radius
+    // of the destination, regardless of what the backend returns. This guarantees
+    // the 0.5mi limit even if server-side filtering is missing or misconfigured.
+    const nearby = markers.filter(m => haversine([lat, lng], [m.lat, m.lng]) <= RADIUS_METERS);
+
+    nearby.forEach(markerData => {
       const icon = L.divIcon({
         className: 'custom-marker-label',
         html: `<div class="marker-label">${markerData.label}</div>`,
