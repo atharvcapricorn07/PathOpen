@@ -11,4 +11,4 @@ RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
 COPY --chown=user . /app
 
-CMD ["gunicorn", "server:app", "--bind", "0.0.0.0:7860", "--timeout", "120", "--workers", "3", "--threads", "4", "--worker-class", "gthread"]
+CMD ["gunicorn", "server:app", "--bind", "0.0.0.0:7860", "--timeout", "120", "--workers", "4"]
