@@ -1,8 +1,5 @@
 /* ============================================================
-   PathAble — Design tokens
-   Palette grounded in wayfinding / accessibility signage.
-   Type: Public Sans (US federal web design system typeface),
-   IBM Plex Mono for data-like labels.
+   PathAble — Design tokens (v2: floating glass surfaces)
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
@@ -10,7 +7,6 @@
 :root {
   --ink: #101827;
   --ink-2: #1B2436;
-  --ink-3: #26314A;
   --slate: #5B6472;
   --slate-light: #8891A0;
   --mist: #F3F5F7;
@@ -22,19 +18,28 @@
   --signal-tint: #E8EEFD;
 
   --ochre: #B5792A;
-  --ochre-dark: #925F1E;
+  --ochre-tint: #F7ECDC;
 
   --coral: #D1483B;
   --coral-tint: #FBEAE8;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  /* Glass materials */
+  --glass: rgba(255, 255, 255, 0.68);
+  --glass-strong: rgba(255, 255, 255, 0.9);
+  --glass-border: rgba(255, 255, 255, 0.55);
+  --glass-dark: rgba(16, 24, 39, 0.78);
+  --glass-blur: blur(22px) saturate(180%);
+
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
   --radius-pill: 999px;
 
-  --shadow-sm: 0 2px 8px rgba(16, 24, 39, 0.12);
-  --shadow-md: 0 8px 24px rgba(16, 24, 39, 0.20);
-  --shadow-lg: 0 12px 40px rgba(16, 24, 39, 0.30);
+  --shadow-float: 0 10px 34px rgba(16,24,39,0.16), 0 1px 3px rgba(16,24,39,0.08);
+  --shadow-soft: 0 4px 16px rgba(16,24,39,0.10);
+  --shadow-deep: 0 24px 64px rgba(16,24,39,0.28);
+
+  --ease: cubic-bezier(0.22, 0.8, 0.2, 1);
 
   --font-ui: 'Public Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
@@ -49,19 +54,30 @@ html, body {
   color: var(--ink);
 }
 
-/* ---------------- Navbar ---------------- */
+/* ---------------- Map (full bleed, everything else floats above it) ---------------- */
+
+#map {
+  position: absolute; inset: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ---------------- Floating search card ---------------- */
 
 #navbar {
-  position: absolute;
-  top: 0; left: 0; right: 0; height: 60px;
-  background: var(--ink);
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top));
+  left: max(14px, env(safe-area-inset-left));
+  right: max(14px, env(safe-area-inset-right));
   display: flex; align-items: stretch;
-  padding: 10px 12px;
-  padding-left: max(12px, env(safe-area-inset-left));
-  padding-right: max(12px, env(safe-area-inset-right));
-  gap: 8px;
+  padding: 7px;
+  gap: 7px;
   z-index: 1000;
-  box-shadow: var(--shadow-sm);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-float);
 }
 
 .input-group {
@@ -76,25 +92,26 @@ html, body {
   padding: 0 0 0 14px;
   border-radius: var(--radius-sm) 0 0 var(--radius-sm);
   border: none;
-  background: var(--ink-2); color: var(--white); outline: none;
+  background: rgba(16,24,39,0.055); color: var(--ink); outline: none;
   font-family: var(--font-ui);
   font-size: max(16px, 14px);
-  font-weight: 500;
+  font-weight: 600;
   transition: background 0.15s;
 }
-#startSearch:focus { background: var(--ink-3); box-shadow: inset 0 0 0 1.5px var(--signal); }
-#startSearch::placeholder { color: var(--slate-light); }
+#startSearch:focus { background: rgba(36,84,232,0.09); box-shadow: inset 0 0 0 1.5px var(--signal); }
+#startSearch::placeholder { color: var(--slate-light); font-weight: 500; }
 
 #useLocationBtn {
   padding: 0 12px; border: none;
-  background: var(--ink-2); color: var(--slate-light); cursor: pointer;
+  background: rgba(16,24,39,0.055); color: var(--signal); cursor: pointer;
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  border-left: 1px solid rgba(255,255,255,0.08);
-  transition: background 0.15s, color 0.15s; flex-shrink: 0;
+  border-left: 1px solid rgba(16,24,39,0.08);
+  transition: background 0.15s; flex-shrink: 0;
   min-width: 44px;
   display: flex; align-items: center; justify-content: center;
 }
-#useLocationBtn:hover { background: var(--ink-3); color: var(--signal); }
+#useLocationBtn:hover { background: rgba(36,84,232,0.12); }
+#useLocationBtn:active { transform: scale(0.92); }
 #useLocationBtn svg { width: 19px; height: 19px; }
 
 #endSearch {
@@ -102,84 +119,85 @@ html, body {
   padding: 0 14px;
   border-radius: var(--radius-sm);
   border: none;
-  background: var(--ink-2); color: var(--white); outline: none;
+  background: rgba(16,24,39,0.055); color: var(--ink); outline: none;
   font-family: var(--font-ui);
   font-size: max(16px, 14px);
-  font-weight: 500;
+  font-weight: 600;
   transition: background 0.15s;
 }
-#endSearch:focus { background: var(--ink-3); box-shadow: inset 0 0 0 1.5px var(--signal); }
-#endSearch::placeholder { color: var(--slate-light); }
+#endSearch:focus { background: rgba(36,84,232,0.09); box-shadow: inset 0 0 0 1.5px var(--signal); }
+#endSearch::placeholder { color: var(--slate-light); font-weight: 500; }
 
 #suggestions {
-  position: absolute; top: 60px; left: 0; width: 100%;
-  max-height: 220px; background: var(--ink-2);
-  overflow-y: auto; z-index: 1000;
-  box-shadow: var(--shadow-md);
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  position: fixed; top: 78px;
+  left: max(14px, env(safe-area-inset-left));
+  right: max(14px, env(safe-area-inset-right));
+  max-height: 240px; background: var(--glass-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  overflow-y: auto; z-index: 999;
+  box-shadow: var(--shadow-float);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
 }
 
 .suggestion {
-  padding: 12px 16px; cursor: pointer; font-size: 13.5px; color: #D7DCE3;
+  padding: 13px 16px; cursor: pointer; font-size: 13.5px; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(16,24,39,0.06);
   min-height: 44px; display: flex; align-items: center;
-  font-weight: 500;
+  font-weight: 600;
 }
 .suggestion:last-child { border-bottom: none; }
-.suggestion:hover { background: var(--ink-3); color: var(--white); }
-
-/* ---------------- Map ---------------- */
-
-#map {
-  position: absolute; top: 60px; bottom: 0; left: 0; right: 0;
-  padding-bottom: env(safe-area-inset-bottom);
-}
+.suggestion:hover { background: rgba(36,84,232,0.08); color: var(--signal-dark); }
 
 /* ---------------- Primary route controls ---------------- */
 
 #routeBtn {
-  position: absolute;
+  position: fixed;
   bottom: max(20px, calc(20px + env(safe-area-inset-bottom)));
   left: 50%;
   transform: translateX(-50%); z-index: 1000;
-  padding: 14px 30px; background: var(--signal); color: var(--white);
+  padding: 15px 32px; background: var(--signal); color: var(--white);
   border: none; border-radius: var(--radius-pill);
   font-family: var(--font-ui); font-size: 15px; font-weight: 700;
   letter-spacing: 0.01em;
-  cursor: pointer; box-shadow: var(--shadow-md);
-  transition: background 0.15s, transform 0.1s; white-space: nowrap;
+  cursor: pointer; box-shadow: 0 12px 28px rgba(36,84,232,0.38), var(--shadow-soft);
+  transition: background 0.15s, transform 0.15s var(--ease); white-space: nowrap;
   max-width: calc(100% - 160px);
 }
 #routeBtn:hover { background: var(--signal-dark); }
-#routeBtn:active { transform: translateX(-50%) scale(0.97); }
+#routeBtn:active { transform: translateX(-50%) scale(0.96); }
 
 #cancelRouteBtn {
-  position: absolute;
+  position: fixed;
   bottom: max(20px, calc(20px + env(safe-area-inset-bottom)));
   right: max(16px, env(safe-area-inset-right));
   z-index: 1000;
-  padding: 12px 22px; background: rgba(16,24,39,0.85); color: #D7DCE3;
-  border: 1px solid rgba(255,255,255,0.14); border-radius: var(--radius-pill);
+  padding: 13px 22px; color: var(--ink);
+  background: var(--glass-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border); border-radius: var(--radius-pill);
   font-family: var(--font-ui); font-size: 14px;
-  font-weight: 600; cursor: pointer; box-shadow: var(--shadow-sm);
-  transition: background 0.15s; white-space: nowrap;
+  font-weight: 700; cursor: pointer; box-shadow: var(--shadow-float);
+  transition: background 0.15s, transform 0.15s var(--ease); white-space: nowrap;
   min-height: 44px;
 }
-#cancelRouteBtn:hover { background: rgba(30,40,60,0.95); color: var(--white); }
+#cancelRouteBtn:hover { background: var(--white); }
+#cancelRouteBtn:active { transform: scale(0.96); }
 
-/* ---------------- Action rail (unified utility buttons) ---------------- */
+/* ---------------- Floating action pills (separate, not joined) ---------------- */
 
 .action-rail {
   position: fixed;
-  top: 72px;
-  right: max(12px, env(safe-area-inset-right));
+  top: 92px;
+  right: max(14px, env(safe-area-inset-right));
   z-index: 1000;
-  width: 176px;
-  background: var(--ink-2);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  overflow: hidden;
+  width: 172px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
 }
 
 .rail-btn {
@@ -187,25 +205,30 @@ html, body {
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 10px;
   width: 100%;
-  padding: 13px 16px;
+  padding: 12px 16px;
   font-family: var(--font-ui);
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--white);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
   cursor: pointer;
-  transition: background 0.15s;
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-float);
+  transition: background 0.15s, transform 0.15s var(--ease);
 }
-.rail-btn + .rail-btn { border-top: 1px solid rgba(255,255,255,0.08); }
-.rail-btn:hover { background: rgba(255,255,255,0.06); }
-.rail-btn:active { background: rgba(255,255,255,0.1); }
+.rail-btn:hover { background: var(--glass-strong); }
+.rail-btn:active { transform: scale(0.96); }
 .rail-btn svg {
   width: 18px; height: 18px; flex-shrink: 0;
-  color: var(--signal-tint);
+  color: var(--signal);
   stroke: currentColor;
 }
-.rail-btn.is-ochre svg { color: #E8C48F; }
+.rail-btn.is-ochre svg { color: var(--ochre); }
 
 a.rail-link { display: block; text-decoration: none; }
 
@@ -213,16 +236,18 @@ a.rail-link { display: block; text-decoration: none; }
 
 #toast {
   position: fixed;
-  bottom: max(84px, calc(84px + env(safe-area-inset-bottom)));
+  bottom: max(88px, calc(88px + env(safe-area-inset-bottom)));
   left: 50%;
-  transform: translateX(-50%) translateY(20px);
-  background: var(--ink); color: var(--white);
-  padding: 11px 22px; border-radius: var(--radius-pill);
+  transform: translateX(-50%) translateY(16px);
+  background: var(--glass-dark); color: var(--white);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  padding: 12px 22px; border-radius: var(--radius-pill);
   font-family: var(--font-ui);
   font-size: 14px; font-weight: 600; z-index: 2000;
   opacity: 0; pointer-events: none;
-  transition: opacity 0.25s ease, transform 0.25s ease;
-  white-space: nowrap; border: 1px solid rgba(255,255,255,0.1);
+  transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
+  white-space: nowrap; border: 1px solid rgba(255,255,255,0.14);
   max-width: calc(100% - 32px);
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -231,17 +256,19 @@ a.rail-link { display: block; text-decoration: none; }
 
 #locationBanner {
   position: fixed;
-  bottom: max(84px, calc(84px + env(safe-area-inset-bottom)));
+  bottom: max(88px, calc(88px + env(safe-area-inset-bottom)));
   left: 50%; transform: translateX(-50%);
-  background: var(--ink-2);
-  border: 1px solid var(--signal);
+  background: var(--glass-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   padding: 12px 14px;
   display: flex; align-items: center; gap: 12px;
   z-index: 2000;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-float);
   font-family: var(--font-ui);
-  font-size: 13.5px; font-weight: 500; color: #D7DCE3;
+  font-size: 13.5px; font-weight: 600; color: var(--ink);
   white-space: nowrap;
   transition: opacity 0.3s;
 }
@@ -255,11 +282,11 @@ a.rail-link { display: block; text-decoration: none; }
 }
 #locationBannerBtn:hover { background: var(--signal-dark); }
 #locationBannerDismiss {
-  background: none; border: none; color: var(--slate-light);
+  background: none; border: none; color: var(--slate);
   font-size: 16px; cursor: pointer; padding: 4px 6px;
   min-height: 36px; min-width: 36px;
 }
-#locationBannerDismiss:hover { color: var(--white); }
+#locationBannerDismiss:hover { color: var(--ink); }
 
 /* ---------------- Map markers ---------------- */
 
@@ -268,7 +295,7 @@ a.rail-link { display: block; text-decoration: none; }
   padding: 5px 11px; border-radius: var(--radius-sm);
   font-family: var(--font-ui);
   font-size: 12.5px; font-weight: 600; white-space: nowrap;
-  box-shadow: var(--shadow-sm); pointer-events: none;
+  box-shadow: var(--shadow-soft); pointer-events: none;
 }
 
 .leaflet-routing-container { display: none !important; }
@@ -280,7 +307,9 @@ a.rail-link { display: block; text-decoration: none; }
 #bugReportOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(16, 24, 39, 0.6);
+  background: rgba(16, 24, 39, 0.38);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 3000;
   display: none;
   align-items: center;
@@ -292,13 +321,13 @@ a.rail-link { display: block; text-decoration: none; }
 .bug-modal {
   background: var(--white);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 26px;
   width: 100%;
   max-width: 380px;
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-deep);
 }
 .bug-modal-icon {
-  width: 40px; height: 40px;
+  width: 42px; height: 42px;
   border-radius: var(--radius-sm);
   background: var(--coral-tint);
   color: var(--coral);
@@ -353,8 +382,10 @@ a.rail-link { display: block; text-decoration: none; }
   font-weight: 600;
   cursor: pointer;
   min-height: 40px;
+  transition: transform 0.15s var(--ease), background 0.15s;
 }
 #bugReportCancel:hover { background: var(--line); }
+#bugReportCancel:active { transform: scale(0.96); }
 #bugReportSubmit {
   background: var(--ink);
   color: var(--white);
@@ -366,35 +397,36 @@ a.rail-link { display: block; text-decoration: none; }
   font-weight: 700;
   cursor: pointer;
   min-height: 40px;
+  transition: transform 0.15s var(--ease), background 0.15s;
 }
 #bugReportSubmit:hover { background: var(--ink-2); }
+#bugReportSubmit:active { transform: scale(0.96); }
 
 /* ---------------- Mobile (≤ 480px) ---------------- */
 
 @media (max-width: 480px) {
   #navbar {
-    height: 112px; flex-wrap: wrap; padding: 8px;
-    padding-left: max(8px, env(safe-area-inset-left));
-    padding-right: max(8px, env(safe-area-inset-right));
+    flex-wrap: wrap;
+    padding: 8px;
     gap: 6px;
   }
   .input-group { width: 100%; flex: none; }
   #endSearch { width: 100%; flex: none; }
-  #map { top: 112px; }
-  #suggestions { top: 112px; }
 
-  .action-rail { top: 122px; width: 152px; }
-  .rail-btn { padding: 11px 13px; font-size: 12.5px; gap: 9px; }
+  #suggestions { top: 128px; }
+
+  .action-rail { top: 142px; width: 152px; }
+  .rail-btn { padding: 11px 13px; font-size: 12px; gap: 8px; }
   .rail-btn svg { width: 16px; height: 16px; }
 
   #routeBtn {
-    font-size: 14px; padding: 12px 24px;
+    font-size: 14px; padding: 13px 26px;
     bottom: max(16px, calc(16px + env(safe-area-inset-bottom)));
     max-width: calc(100% - 140px);
   }
   #cancelRouteBtn {
     bottom: max(16px, calc(16px + env(safe-area-inset-bottom)));
-    padding: 9px 18px; font-size: 13px;
+    padding: 10px 18px; font-size: 13px;
   }
 
   #locationBanner {
