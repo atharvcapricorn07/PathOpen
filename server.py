@@ -19,6 +19,16 @@ DUPLICATE_RADIUS_METERS = 15
 ABSOLUTE_BLOCK_METERS   = 5
 VALID_LABELS = ["a staircase", "a ramp", "a wheelchair", "an elevator", "a curb cut", "a handrail"]
 
+# Groq deprecated meta-llama/llama-4-maverick-17b-128e-instruct on March 9, 2026,
+# and meta-llama/llama-4-scout-17b-16e-instruct is scheduled to shut down July 17, 2026.
+# Groq's own migration guidance recommends openai/gpt-oss-120b as the general
+# replacement, but that model is TEXT-ONLY (no vision support) as of this writing.
+# For vision/multimodal workloads like ours, Groq's documented replacement is
+# qwen/qwen3.6-27b (currently a preview-tier model on Groq, but the only
+# vision-capable option in the migration path). Centralized here so both
+# vision call sites stay in sync if this needs to change again.
+VISION_MODEL = "qwen/qwen3.6-27b"
+
 def haversine_meters(lat1, lon1, lat2, lon2):
     R = 6371000
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
@@ -76,7 +86,7 @@ def analyze_image():
                 "Content-Type": "application/json"
             },
             json={
-                "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+                "model": VISION_MODEL,
                 "max_tokens": 256,
                 "messages": [{
                     "role": "user",
@@ -146,7 +156,7 @@ def verify_image_matches_label(image_bytes, label):
                 "Content-Type": "application/json"
             },
             json={
-                "model": "meta-llama/llama-4-maverick-17b-128e-instruct",
+                "model": VISION_MODEL,
                 "max_tokens": 100,
                 "messages": [{
                     "role": "user",
