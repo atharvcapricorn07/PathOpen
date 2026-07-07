@@ -1,5 +1,6 @@
 #!/bin/bash
 BASE="https://atharvcapricorn07-pathable.hf.space"
+ADMIN_KEY="pathable_admin_x7f2k9d1"
 
 STATS_JSON=$(curl -s "$BASE/stats")
 
@@ -58,4 +59,41 @@ else:
         print(f\"    page: {b.get('page_url', '?')}\")
         print(f\"    agent: {b.get('user_agent', '?')}\")
         print()
+"
+
+echo ""
+echo "--- flagged markers (need review) ---"
+
+FLAGGED_JSON=$(curl -s -H "X-Admin-Key: $ADMIN_KEY" "$BASE/flagged")
+
+echo "$FLAGGED_JSON" | python3 -c "
+import json, sys
+
+raw = sys.stdin.read()
+try:
+    flagged = json.loads(raw)
+except json.JSONDecodeError:
+    print('Server did not return JSON (likely a cold start or the space is down). Raw response:')
+    print(raw[:500])
+    sys.exit(1)
+
+if isinstance(flagged, dict) and flagged.get('error'):
+    print(f\"  error: {flagged['error']}\")
+    sys.exit(1)
+
+if not flagged:
+    print('  \u2705 nothing flagged, all clear')
+else:
+    print(f'  \u26a0\ufe0f  {len(flagged)} marker(s) flagged and waiting on you:')
+    print()
+    for m in flagged:
+        print(f\"  [{m.get('label', '?')}] id={m.get('id', '?')}\")
+        print(f\"    reason: {m.get('flag_reason', '?')}\")
+        print(f\"    created: {m.get('created_at', '?')}\")
+        print(f\"    location: {m.get('lat', '?')}, {m.get('lng', '?')}\")
+        print(f\"    image: {m.get('image_url', '?')}\")
+        print()
+    print('  resolve with:')
+    print(f'    curl -X POST -H \"X-Admin-Key: $ADMIN_KEY\" $BASE/flagged/<id>/resolve -H \"Content-Type: application/json\" -d \'{{\"action\":\"keep\"}}\'')
+    print(f'    curl -X POST -H \"X-Admin-Key: $ADMIN_KEY\" $BASE/flagged/<id>/resolve -H \"Content-Type: application/json\" -d \'{{\"action\":\"delete\"}}\'')
 "
