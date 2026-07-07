@@ -159,18 +159,25 @@ def verify_image_matches_label(image_bytes, label):
             timeout=25
         )
 
+        if not response.ok:
+            err_detail = f"Groq API returned {response.status_code}: {response.text[:300]}"
+            print(f"ERROR in verify_image_matches_label: {err_detail}")
+            return None, err_detail, True
+
         raw = response.json()["choices"][0]["message"]["content"].strip()
         match = re.search(r'\{.*?\}', raw, re.DOTALL)
         if not match:
-            print(f"ERROR in verify_image_matches_label: no JSON found in response: {raw!r}")
-            return None, "", True
+            err_detail = f"no JSON found in model response: {raw[:300]!r}"
+            print(f"ERROR in verify_image_matches_label: {err_detail}")
+            return None, err_detail, True
 
         parsed = json.loads(match.group())
         return bool(parsed.get("matches", True)), str(parsed.get("reason", ""))[:300], False
 
     except Exception as e:
-        print(f"ERROR in verify_image_matches_label: {e}")
-        return None, "", True  # technical failure — caller must NOT treat this as verified
+        err_detail = f"{type(e).__name__}: {e}"
+        print(f"ERROR in verify_image_matches_label: {err_detail}")
+        return None, err_detail[:300], True  # technical failure — caller must NOT treat this as verified
 
 def run_verification_and_flag(marker_id, image_bytes, label):
     """Runs in a background thread so /save-marker can return to the user
@@ -528,12 +535,15 @@ def verify_single_marker(marker_id):
 
         matches, reason, error = verify_image_matches_label(img_res.content, m["label"])
         if error:
-            # Technical failure — do NOT touch verified_at/flagged, and say so
-            # explicitly instead of pretending we got a verdict.
+            # Technical failure — do NOT touch verified_at/flagged, and surface
+            # the actual underlying error detail (Groq status, bad JSON, exception
+            # message) so this is debuggable straight from the API response,
+            # without needing to dig through HF's log viewer.
             return jsonify({
                 "marker_id": marker_id,
                 "label": m["label"],
-                "error": "verification check failed (network/parsing error), marker left unverified"
+                "error": "verification check failed, marker left unverified",
+                "detail": reason
             }), 502
 
         update = {"verified_at": datetime.now(timezone.utc).isoformat()}
@@ -572,17 +582,20 @@ def verify_pending():
         checked = 0
         flagged = 0
         failed = 0
+        failures = []  # {marker_id, detail} for anything that errored this sweep
         for m in (pending.data or []):
             try:
                 img_res = req.get(m["image_url"], timeout=15)
                 if not img_res.ok:
                     failed += 1
+                    failures.append({"marker_id": m["id"], "detail": f"could not fetch image: {img_res.status_code}"})
                     continue
                 matches, reason, error = verify_image_matches_label(img_res.content, m["label"])
                 if error:
                     # Leave verified_at null so this marker gets retried on the
                     # next sweep instead of silently being marked as passing.
                     failed += 1
+                    failures.append({"marker_id": m["id"], "detail": reason})
                     continue
                 update = {"verified_at": datetime.now(timezone.utc).isoformat()}
                 if not matches:
@@ -594,8 +607,14 @@ def verify_pending():
             except Exception as inner_e:
                 print(f"ERROR verifying marker {m.get('id')}: {inner_e}")
                 failed += 1
+                failures.append({"marker_id": m.get("id"), "detail": f"{type(inner_e).__name__}: {inner_e}"})
 
-        return jsonify({"checked": checked, "newly_flagged": flagged, "failed_will_retry": failed})
+        return jsonify({
+            "checked": checked,
+            "newly_flagged": flagged,
+            "failed_will_retry": failed,
+            "failures": failures
+        })
     except Exception as e:
         print(f"ERROR in verify_pending: {e}")
         return jsonify({"error": str(e)}), 500
