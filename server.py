@@ -87,7 +87,8 @@ def analyze_image():
             },
             json={
                 "model": VISION_MODEL,
-                "max_tokens": 256,
+                "max_tokens": 512,
+                "reasoning_effort": "none",  # qwen3.6 is a reasoning model; skip <think> to save tokens
                 "messages": [{
                     "role": "user",
                     "content": [
@@ -106,6 +107,10 @@ def analyze_image():
 
         raw = response.json()["choices"][0]["message"]["content"].strip()
         print(f"Groq response: {raw}")
+
+        # Defensively strip any reasoning block, in case reasoning_effort is
+        # ignored by the API and the model still emits <think>...</think>.
+        raw = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
 
         match = re.search(r'\[.*?\]', raw, re.DOTALL)
         labels = json.loads(match.group()) if match else []
@@ -157,7 +162,8 @@ def verify_image_matches_label(image_bytes, label):
             },
             json={
                 "model": VISION_MODEL,
-                "max_tokens": 100,
+                "max_tokens": 400,
+                "reasoning_effort": "none",  # qwen3.6 is a reasoning model; skip <think> to save tokens
                 "messages": [{
                     "role": "user",
                     "content": [
@@ -175,6 +181,9 @@ def verify_image_matches_label(image_bytes, label):
             return None, err_detail, True
 
         raw = response.json()["choices"][0]["message"]["content"].strip()
+        # Defensively strip any reasoning block, in case reasoning_effort is
+        # ignored by the API and the model still emits <think>...</think>.
+        raw = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
         match = re.search(r'\{.*?\}', raw, re.DOTALL)
         if not match:
             err_detail = f"no JSON found in model response: {raw[:300]!r}"
