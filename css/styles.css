@@ -74,25 +74,27 @@ html, body {
   z-index: 1000;
 }
 
+/* input-group is now just a positioning wrapper — no background/blur of
+   its own, so #startSearch renders as a single glass surface exactly
+   like #endSearch does. */
 .input-group {
   position: relative;
   display: flex;
   align-items: stretch;
-  background: var(--glass);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-pill);
-  box-shadow: var(--shadow-float);
-  overflow: hidden;
 }
 
 #startSearch {
-  flex: 1; min-width: 0;
+  box-sizing: border-box;
+  width: 100%;
   height: 52px;
-  padding: 0 8px 0 20px;
-  border: none;
-  background: transparent; color: var(--ink); outline: none;
+  padding: 0 56px 0 20px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-float);
+  color: var(--ink); outline: none;
   font-family: var(--font-ui);
   font-size: 16px;
   font-weight: 600;
@@ -102,15 +104,23 @@ html, body {
 #startSearch::placeholder { color: var(--slate-light); font-weight: 500; }
 
 #useLocationBtn {
-  padding: 0 18px; border: none;
-  background: transparent; color: var(--signal); cursor: pointer;
-  border-left: 1px solid rgba(16,24,39,0.08);
-  transition: background 0.15s; flex-shrink: 0;
-  min-width: 48px;
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--signal);
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
 }
 #useLocationBtn:hover { background: rgba(36,84,232,0.1); }
-#useLocationBtn:active { transform: scale(0.92); }
+#useLocationBtn:active { transform: translateY(-50%) scale(0.92); }
 #useLocationBtn svg { width: 20px; height: 20px; }
 
 #endSearch {
@@ -481,6 +491,8 @@ a.rail-link { display: block; text-decoration: none; }
 
 @media (max-width: 480px) {
   #startSearch, #endSearch { height: 48px; font-size: 15px; }
+  #startSearch { padding-right: 48px; }
+  #useLocationBtn { width: 36px; height: 36px; right: 4px; }
   #useLocationBtn svg { width: 18px; height: 18px; }
 
   #suggestions { top: 138px; }
