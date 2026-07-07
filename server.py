@@ -110,8 +110,16 @@ def analyze_image():
 
 def verify_image_matches_label(image_bytes, label):
     """Ask the vision model whether the image genuinely shows `label`.
-    Returns (matches: bool, reason: str). Fails open (treats as a match) on any
-    error, so a Groq hiccup never incorrectly flags a real submission."""
+    Returns (matches, reason, error):
+      - matches: True/False when the model gave a real verdict, None if the check
+        itself failed (network error, bad response, etc.)
+      - reason: short explanation string (empty on error)
+      - error: True if this was a technical failure, not a model verdict
+
+    IMPORTANT: this now fails CLOSED in the sense that a technical error is never
+    silently treated as "matches". Callers must check `error` and leave the marker
+    unverified (don't set verified_at) so it gets retried later, instead of
+    marking a failed check as a clean pass."""
     try:
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         image.thumbnail((800, 800))
@@ -153,18 +161,27 @@ def verify_image_matches_label(image_bytes, label):
 
         raw = response.json()["choices"][0]["message"]["content"].strip()
         match = re.search(r'\{.*?\}', raw, re.DOTALL)
-        parsed = json.loads(match.group()) if match else {"matches": True, "reason": ""}
-        return bool(parsed.get("matches", True)), str(parsed.get("reason", ""))[:300]
+        if not match:
+            print(f"ERROR in verify_image_matches_label: no JSON found in response: {raw!r}")
+            return None, "", True
+
+        parsed = json.loads(match.group())
+        return bool(parsed.get("matches", True)), str(parsed.get("reason", ""))[:300], False
 
     except Exception as e:
         print(f"ERROR in verify_image_matches_label: {e}")
-        return True, ""  # fail open — never flag a real submission because of our own error
+        return None, "", True  # technical failure — caller must NOT treat this as verified
 
 def run_verification_and_flag(marker_id, image_bytes, label):
     """Runs in a background thread so /save-marker can return to the user
     immediately without waiting on a second Groq call."""
     try:
-        matches, reason = verify_image_matches_label(image_bytes, label)
+        matches, reason, error = verify_image_matches_label(image_bytes, label)
+        if error:
+            # Technical failure, not a real verdict — leave verified_at unset
+            # so the /verify-pending sweep picks this marker up and retries it.
+            print(f"Verification for marker {marker_id} failed technically; leaving unverified for retry.")
+            return
         update = {"verified_at": datetime.now(timezone.utc).isoformat()}
         if not matches:
             update["flagged"] = True
@@ -509,7 +526,16 @@ def verify_single_marker(marker_id):
         if not img_res.ok:
             return jsonify({"error": f"could not fetch image: {img_res.status_code}"}), 500
 
-        matches, reason = verify_image_matches_label(img_res.content, m["label"])
+        matches, reason, error = verify_image_matches_label(img_res.content, m["label"])
+        if error:
+            # Technical failure — do NOT touch verified_at/flagged, and say so
+            # explicitly instead of pretending we got a verdict.
+            return jsonify({
+                "marker_id": marker_id,
+                "label": m["label"],
+                "error": "verification check failed (network/parsing error), marker left unverified"
+            }), 502
+
         update = {"verified_at": datetime.now(timezone.utc).isoformat()}
         if not matches:
             update["flagged"] = True
@@ -545,12 +571,19 @@ def verify_pending():
 
         checked = 0
         flagged = 0
+        failed = 0
         for m in (pending.data or []):
             try:
                 img_res = req.get(m["image_url"], timeout=15)
                 if not img_res.ok:
+                    failed += 1
                     continue
-                matches, reason = verify_image_matches_label(img_res.content, m["label"])
+                matches, reason, error = verify_image_matches_label(img_res.content, m["label"])
+                if error:
+                    # Leave verified_at null so this marker gets retried on the
+                    # next sweep instead of silently being marked as passing.
+                    failed += 1
+                    continue
                 update = {"verified_at": datetime.now(timezone.utc).isoformat()}
                 if not matches:
                     update["flagged"] = True
@@ -560,8 +593,9 @@ def verify_pending():
                 checked += 1
             except Exception as inner_e:
                 print(f"ERROR verifying marker {m.get('id')}: {inner_e}")
+                failed += 1
 
-        return jsonify({"checked": checked, "newly_flagged": flagged})
+        return jsonify({"checked": checked, "newly_flagged": flagged, "failed_will_retry": failed})
     except Exception as e:
         print(f"ERROR in verify_pending: {e}")
         return jsonify({"error": str(e)}), 500
