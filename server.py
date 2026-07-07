@@ -121,8 +121,11 @@ def verify_image_matches_label(image_bytes, label):
 
         prompt = (
             f"Someone tagged this photo as showing {label}. "
-            "Look carefully and decide if that is actually, clearly visible in the image.\n"
-            'Reply ONLY with JSON in this exact form: {"matches": true or false, "reason": "one short sentence"}'
+            "Look very carefully at the actual visible details — do not assume a feature exists just "
+            "because of the general setting (e.g. don't assume a ramp exists just because you see a "
+            "building entrance; don't assume a handrail exists just because you see any railing). "
+            "Only say true if you can point to a specific, clearly visible detail that matches. "
+            'Reply ONLY with JSON in this exact form: {"matches": true or false, "reason": "one short sentence naming the specific detail you saw or did not see"}'
         )
 
         response = req.post(
@@ -548,3 +551,4 @@ def verify_pending():
 
 if __name__ == "__main__":
     app.run(debug=False)
+    
