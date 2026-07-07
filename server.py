@@ -468,6 +468,20 @@ def admin_all_markers():
         print(f"ERROR in admin_all_markers: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/admin/markers/<marker_id>", methods=["DELETE"])
+def admin_delete_marker(marker_id):
+    """Directly deletes a marker regardless of its flagged/verified status.
+    For cases where you've manually confirmed something's wrong and don't
+    want to wait on the AI to agree first."""
+    if not require_admin():
+        return jsonify({"error": "unauthorized"}), 403
+    try:
+        supabase.table("ada_markers").delete().eq("id", marker_id).execute()
+        return jsonify({"success": True, "deleted": marker_id})
+    except Exception as e:
+        print(f"ERROR in admin_delete_marker: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/verify-marker/<marker_id>", methods=["POST"])
 def verify_single_marker(marker_id):
     """Force an immediate, synchronous re-check of one specific marker,
@@ -551,4 +565,3 @@ def verify_pending():
 
 if __name__ == "__main__":
     app.run(debug=False)
-    
