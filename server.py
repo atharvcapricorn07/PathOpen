@@ -124,6 +124,9 @@ def verify_image_matches_label(image_bytes, label):
             "Look very carefully at the actual visible details — do not assume a feature exists just "
             "because of the general setting (e.g. don't assume a ramp exists just because you see a "
             "building entrance; don't assume a handrail exists just because you see any railing). "
+            "Do not conclude a ramp is present based on color, paint, or texture alone — a yellow, "
+            "textured, or painted strip on otherwise flat ground is tactile paving or a floor marking, "
+            "NOT a ramp, unless the surface itself visibly rises or slopes in elevation. "
             "Only say true if you can point to a specific, clearly visible detail that matches. "
             'Reply ONLY with JSON in this exact form: {"matches": true or false, "reason": "one short sentence naming the specific detail you saw or did not see"}'
         )
@@ -135,7 +138,7 @@ def verify_image_matches_label(image_bytes, label):
                 "Content-Type": "application/json"
             },
             json={
-                "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+                "model": "meta-llama/llama-4-maverick-17b-128e-instruct",
                 "max_tokens": 100,
                 "messages": [{
                     "role": "user",
