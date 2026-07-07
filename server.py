@@ -447,6 +447,63 @@ def resolve_flagged(marker_id):
         print(f"ERROR in resolve_flagged: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/admin/markers")
+def admin_all_markers():
+    """Lists every marker with its verification status — useful for finding
+    the ID of a specific marker you want to force-check or investigate."""
+    if not require_admin():
+        return jsonify({"error": "unauthorized"}), 403
+    try:
+        result = (
+            supabase.table("ada_markers")
+            .select("id, created_at, lat, lng, label, image_url, flagged, flag_reason, verified_at")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return jsonify(result.data)
+    except Exception as e:
+        print(f"ERROR in admin_all_markers: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/verify-marker/<marker_id>", methods=["POST"])
+def verify_single_marker(marker_id):
+    """Force an immediate, synchronous re-check of one specific marker,
+    regardless of whether it's already been verified. Returns the AI's
+    actual verdict directly, instead of just updating quietly in the background —
+    useful for debugging a specific marker you're suspicious of right now."""
+    if not require_admin():
+        return jsonify({"error": "unauthorized"}), 403
+    try:
+        row = (
+            supabase.table("ada_markers")
+            .select("id, label, image_url")
+            .eq("id", marker_id)
+            .single()
+            .execute()
+        )
+        m = row.data
+        if not m or not m.get("image_url"):
+            return jsonify({"error": "marker not found or has no image"}), 404
+
+        img_res = req.get(m["image_url"], timeout=15)
+        if not img_res.ok:
+            return jsonify({"error": f"could not fetch image: {img_res.status_code}"}), 500
+
+        matches, reason = verify_image_matches_label(img_res.content, m["label"])
+        update = {"verified_at": datetime.now(timezone.utc).isoformat()}
+        if not matches:
+            update["flagged"] = True
+            update["flag_reason"] = reason or f"AI did not detect '{m['label']}' in this photo."
+        else:
+            update["flagged"] = False
+            update["flag_reason"] = None
+        supabase.table("ada_markers").update(update).eq("id", marker_id).execute()
+
+        return jsonify({"marker_id": marker_id, "label": m["label"], "matches": matches, "reason": reason})
+    except Exception as e:
+        print(f"ERROR in verify_single_marker: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/verify-pending", methods=["POST"])
 def verify_pending():
     """Periodic sweep: re-checks any marker that has never been through the
@@ -460,8 +517,8 @@ def verify_pending():
         pending = (
             supabase.table("ada_markers")
             .select("id, label, image_url")
-            .is_("verified_at", "null")
-            .not_.is_("image_url", "null")
+            .filter("verified_at", "is", "null")
+            .filter("image_url", "not.is", "null")
             .limit(25)  # keep each sweep small and fast
             .execute()
         )
