@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 from PIL import Image
 from supabase import create_client
-import io, os, time, math, json, re, base64, requests as req
+import io, os, time, math, json, re, base64, threading, requests as req
 from datetime import datetime, timezone
 from flask_cors import CORS
 
@@ -11,6 +11,7 @@ CORS(app, origins=["https://pathable-mu.vercel.app", "https://atharvcapricorn07-
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 GROQ_KEY     = os.environ.get("GROQ_API_KEY")
+ADMIN_KEY    = os.environ.get("ADMIN_KEY")  # required to hit /flagged, /verify-pending, etc.
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -25,6 +26,14 @@ def haversine_meters(lat1, lon1, lat2, lon2):
     dlambda = math.radians(lon2 - lon1)
     a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+def require_admin():
+    """Returns True if the request carries the correct admin key. Used to gate
+    review/moderation endpoints that aren't meant for regular app users."""
+    if not ADMIN_KEY:
+        return False  # fail closed if no key has been configured yet
+    supplied = request.headers.get("X-Admin-Key", "")
+    return supplied == ADMIN_KEY
 
 @app.route("/")
 def index():
@@ -99,6 +108,65 @@ def analyze_image():
         print(f"ERROR in analyze_image: {e}")
         return jsonify({"error": str(e)}), 500
 
+def verify_image_matches_label(image_bytes, label):
+    """Ask the vision model whether the image genuinely shows `label`.
+    Returns (matches: bool, reason: str). Fails open (treats as a match) on any
+    error, so a Groq hiccup never incorrectly flags a real submission."""
+    try:
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        image.thumbnail((800, 800))
+        buf = io.BytesIO()
+        image.save(buf, format="JPEG", quality=85)
+        img_b64 = base64.standard_b64encode(buf.getvalue()).decode("utf-8")
+
+        prompt = (
+            f"Someone tagged this photo as showing {label}. "
+            "Look carefully and decide if that is actually, clearly visible in the image.\n"
+            'Reply ONLY with JSON in this exact form: {"matches": true or false, "reason": "one short sentence"}'
+        )
+
+        response = req.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+                "max_tokens": 100,
+                "messages": [{
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}},
+                        {"type": "text", "text": prompt}
+                    ]
+                }]
+            },
+            timeout=25
+        )
+
+        raw = response.json()["choices"][0]["message"]["content"].strip()
+        match = re.search(r'\{.*?\}', raw, re.DOTALL)
+        parsed = json.loads(match.group()) if match else {"matches": True, "reason": ""}
+        return bool(parsed.get("matches", True)), str(parsed.get("reason", ""))[:300]
+
+    except Exception as e:
+        print(f"ERROR in verify_image_matches_label: {e}")
+        return True, ""  # fail open — never flag a real submission because of our own error
+
+def run_verification_and_flag(marker_id, image_bytes, label):
+    """Runs in a background thread so /save-marker can return to the user
+    immediately without waiting on a second Groq call."""
+    try:
+        matches, reason = verify_image_matches_label(image_bytes, label)
+        update = {"verified_at": datetime.now(timezone.utc).isoformat()}
+        if not matches:
+            update["flagged"] = True
+            update["flag_reason"] = reason or f"AI did not detect '{label}' in this photo."
+        supabase.table("ada_markers").update(update).eq("id", marker_id).execute()
+    except Exception as e:
+        print(f"ERROR in run_verification_and_flag for marker {marker_id}: {e}")
+
 @app.route("/debug")
 def debug():
     return jsonify({
@@ -109,13 +177,35 @@ def debug():
 
 @app.route("/markers", methods=["GET"])
 def get_markers():
-    lat    = float(request.args.get('lat'))
-    lng    = float(request.args.get('lng'))
-    radius = float(request.args.get('radius', 804))
-    result = supabase.rpc("nearby_markers", {
-        "lat": lat, "lng": lng, "radius_meters": radius
-    }).execute()
-    return jsonify(result.data)
+    try:
+        lat    = float(request.args.get('lat'))
+        lng    = float(request.args.get('lng'))
+        radius = float(request.args.get('radius', 804))
+
+        # Cheap bounding-box pre-filter (degrees), then precise great-circle
+        # distance check below. This replaces the old nearby_markers RPC call
+        # so the radius logic lives in one auditable place, not hidden in SQL.
+        delta = (radius / 111000) * 1.5  # generous pad, refined by haversine next
+        rows = (
+            supabase.table("ada_markers")
+            .select("id, lat, lng, label, image_url, flagged")
+            .gte("lat", lat - delta).lte("lat", lat + delta)
+            .gte("lng", lng - delta).lte("lng", lng + delta)
+            .execute()
+        )
+
+        nearby = []
+        for m in (rows.data or []):
+            if m.get("flagged"):
+                continue  # hide anything pending review from the public map
+            dist = haversine_meters(lat, lng, float(m["lat"]), float(m["lng"]))
+            if dist <= radius:
+                nearby.append(m)
+
+        return jsonify(nearby)
+    except Exception as e:
+        print(f"ERROR in get_markers: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/save-marker", methods=["POST"])
 def save_marker():
@@ -175,11 +265,21 @@ def save_marker():
             else:
                 return jsonify({"error": f"Storage failed: {r.status_code} - {r.text}"}), 500
 
-        supabase.table("ada_markers").insert({
+        insert_result = supabase.table("ada_markers").insert({
             "lat": lat, "lng": lng, "label": label,
             "image_url": image_url,
             "location":  f"POINT({lng} {lat})"
         }).execute()
+
+        # Fire off a background AI re-check: does the photo actually show what
+        # was tagged? Doesn't block the response — the user's save still feels instant.
+        if file_bytes and insert_result.data:
+            new_id = insert_result.data[0]["id"]
+            threading.Thread(
+                target=run_verification_and_flag,
+                args=(new_id, file_bytes, label),
+                daemon=True
+            ).start()
 
         return jsonify({"success": True})
 
@@ -305,6 +405,88 @@ def stats():
         })
     except Exception as e:
         print(f"ERROR in stats: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/flagged")
+def flagged_markers():
+    if not require_admin():
+        return jsonify({"error": "unauthorized"}), 403
+    try:
+        result = (
+            supabase.table("ada_markers")
+            .select("id, created_at, lat, lng, label, image_url, flag_reason")
+            .eq("flagged", True)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return jsonify(result.data)
+    except Exception as e:
+        print(f"ERROR in flagged_markers: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/flagged/<marker_id>/resolve", methods=["POST"])
+def resolve_flagged(marker_id):
+    if not require_admin():
+        return jsonify({"error": "unauthorized"}), 403
+    try:
+        data = request.get_json(silent=True) or {}
+        action = data.get("action")  # "delete" or "keep"
+
+        if action == "delete":
+            supabase.table("ada_markers").delete().eq("id", marker_id).execute()
+            return jsonify({"success": True, "action": "deleted"})
+        elif action == "keep":
+            supabase.table("ada_markers").update({
+                "flagged": False,
+                "flag_reason": None
+            }).eq("id", marker_id).execute()
+            return jsonify({"success": True, "action": "kept"})
+        else:
+            return jsonify({"error": "action must be 'delete' or 'keep'"}), 400
+    except Exception as e:
+        print(f"ERROR in resolve_flagged: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/verify-pending", methods=["POST"])
+def verify_pending():
+    """Periodic sweep: re-checks any marker that has never been through the
+    AI verification pass (verified_at is null) — including markers saved
+    before this feature existed. Trigger this on a schedule (cron-job.org,
+    a GitHub Actions scheduled workflow, etc.) hitting this endpoint with
+    the X-Admin-Key header set."""
+    if not require_admin():
+        return jsonify({"error": "unauthorized"}), 403
+    try:
+        pending = (
+            supabase.table("ada_markers")
+            .select("id, label, image_url")
+            .is_("verified_at", "null")
+            .not_.is_("image_url", "null")
+            .limit(25)  # keep each sweep small and fast
+            .execute()
+        )
+
+        checked = 0
+        flagged = 0
+        for m in (pending.data or []):
+            try:
+                img_res = req.get(m["image_url"], timeout=15)
+                if not img_res.ok:
+                    continue
+                matches, reason = verify_image_matches_label(img_res.content, m["label"])
+                update = {"verified_at": datetime.now(timezone.utc).isoformat()}
+                if not matches:
+                    update["flagged"] = True
+                    update["flag_reason"] = reason or f"AI did not detect '{m['label']}' in this photo."
+                    flagged += 1
+                supabase.table("ada_markers").update(update).eq("id", m["id"]).execute()
+                checked += 1
+            except Exception as inner_e:
+                print(f"ERROR verifying marker {m.get('id')}: {inner_e}")
+
+        return jsonify({"checked": checked, "newly_flagged": flagged})
+    except Exception as e:
+        print(f"ERROR in verify_pending: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":

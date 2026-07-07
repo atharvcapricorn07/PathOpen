@@ -4,8 +4,8 @@
   "description": "Accessible navigation for everyone",
   "start_url": "/index.html",
   "display": "standalone",
-  "background_color": "#1a1a2e",
-  "theme_color": "#0d9488",
+  "background_color": "#F3F5F7",
+  "theme_color": "#2454E8",
   "icons": [
     {
       "src": "/icons/icon-192.png",
