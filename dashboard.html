@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PathAble — Ops</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<style>
+  :root{
+    --bg:#0b0e12;
+    --panel:#12161d;
+    --panel-border:#1f2530;
+    --text:#e6e9ef;
+    --muted:#7c8797;
+    --accent:#4fd1c5;
+    --danger:#e5484d;
+    --danger-dim:#3a1618;
+    --success:#3dd68c;
+    --mono: 'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    min-height:100vh;
+  }
+  #lockscreen{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    gap:16px;
+  }
+  #lockscreen input{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    color:var(--text);
+    padding:10px 14px;
+    border-radius:6px;
+    font-family:var(--mono);
+    font-size:14px;
+    width:280px;
+  }
+  #lockscreen button{
+    background:var(--accent);
+    color:#04201d;
+    border:none;
+    padding:10px 18px;
+    border-radius:6px;
+    font-weight:600;
+    cursor:pointer;
+    font-size:14px;
+  }
+  #app{display:none;}
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:20px 28px;
+    border-bottom:1px solid var(--panel-border);
+  }
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{
+    width:10px;height:10px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 0 0 rgba(79,209,197,0.5);
+    animation:pulse 2.4s infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(79,209,197,0.5);}
+    70%{box-shadow:0 0 0 8px rgba(79,209,197,0);}
+    100%{box-shadow:0 0 0 0 rgba(79,209,197,0);}
+  }
+  h1{font-size:15px;font-weight:600;letter-spacing:0.02em;margin:0;}
+  .sub{color:var(--muted);font-size:12px;font-family:var(--mono);}
+  #meta{text-align:right;font-size:11px;color:var(--muted);font-family:var(--mono);}
+  main{padding:28px;max-width:1080px;margin:0 auto;}
+
+  .stat-grid{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:12px;
+    margin-bottom:24px;
+  }
+  .stat{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:10px;
+    padding:16px 18px;
+  }
+  .stat .num{font-family:var(--mono);font-size:26px;font-weight:600;}
+  .stat .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.06em;margin-top:4px;}
+
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+  @media (max-width:760px){
+    .row{grid-template-columns:1fr;}
+    .stat-grid{grid-template-columns:repeat(2,1fr);}
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:10px;
+    padding:18px 20px;
+  }
+  .panel h2{
+    font-size:12px;text-transform:uppercase;letter-spacing:0.08em;
+    color:var(--muted);margin:0 0 14px 0;font-weight:600;
+  }
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;}
+  .bar-label{width:110px;color:var(--text);flex-shrink:0;}
+  .bar-track{flex:1;height:6px;background:#1a1f28;border-radius:3px;overflow:hidden;}
+  .bar-fill{height:100%;background:var(--accent);border-radius:3px;}
+  .bar-count{font-family:var(--mono);color:var(--muted);width:24px;text-align:right;}
+
+  #flaggedPanel.has-flags{border-color:var(--danger);}
+  #flaggedPanel.has-flags h2{color:var(--danger);}
+  .flag-count-badge{
+    display:inline-block;background:var(--danger);color:#fff;
+    font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:10px;margin-left:8px;
+  }
+  .flag-item{
+    background:var(--danger-dim);
+    border:1px solid #4a2226;
+    border-radius:8px;
+    padding:12px 14px;
+    margin-bottom:10px;
+  }
+  .flag-item img{
+    width:56px;height:56px;object-fit:cover;border-radius:6px;float:left;margin-right:12px;
+  }
+  .flag-label{font-weight:600;font-size:13px;}
+  .flag-reason{color:var(--muted);font-size:12px;margin-top:2px;}
+  .flag-meta{color:var(--muted);font-size:11px;font-family:var(--mono);margin-top:4px;}
+  .flag-actions{margin-top:10px;clear:both;display:flex;gap:8px;}
+  .flag-actions button{
+    font-size:12px;padding:5px 12px;border-radius:5px;border:none;cursor:pointer;font-weight:600;
+  }
+  .btn-keep{background:#1e2a24;color:var(--success);border:1px solid #2a4536 !important;}
+  .btn-delete{background:#2a1518;color:var(--danger);border:1px solid #4a2226 !important;}
+  .empty-ok{color:var(--success);font-size:13px;font-family:var(--mono);}
+
+  .bug-item{border-bottom:1px solid var(--panel-border);padding:10px 0;font-size:13px;}
+  .bug-item:last-child{border-bottom:none;}
+  .bug-msg{margin-bottom:3px;}
+  .bug-meta{color:var(--muted);font-size:11px;font-family:var(--mono);}
+  .empty-muted{color:var(--muted);font-size:13px;}
+</style>
+</head>
+<body>
+
+<div id="lockscreen">
+  <div class="sub">PATHABLE — ADMIN ACCESS</div>
+  <input id="keyInput" type="password" placeholder="Admin key" autocomplete="off">
+  <button onclick="submitKey()">Enter</button>
+</div>
+
+<div id="app">
+  <header>
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div>
+        <h1>PathAble — Ops</h1>
+        <div class="sub">live status, updates every 30s</div>
+      </div>
+    </div>
+    <div id="meta">loading…</div>
+  </header>
+
+  <main>
+    <div class="stat-grid" id="statGrid"></div>
+
+    <div class="panel" id="flaggedPanel" style="margin-bottom:16px;">
+      <h2>Needs review <span id="flagBadge"></span></h2>
+      <div id="flaggedList"></div>
+    </div>
+
+    <div class="row">
+      <div class="panel">
+        <h2>Markers by label</h2>
+        <div id="labelBars"></div>
+      </div>
+      <div class="panel">
+        <h2>Bug reports</h2>
+        <div id="bugList" style="max-height:260px;overflow-y:auto;"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const BASE = "https://atharvcapricorn07-pathable.hf.space";
+let ADMIN_KEY = localStorage.getItem('pathable_admin_key') || '';
+
+function submitKey(){
+  const v = document.getElementById('keyInput').value.trim();
+  if(!v) return;
+  ADMIN_KEY = v;
+  localStorage.setItem('pathable_admin_key', v);
+  boot();
+}
+document.getElementById('keyInput').addEventListener('keydown', e => {
+  if(e.key === 'Enter') submitKey();
+});
+
+function boot(){
+  document.getElementById('lockscreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  refresh();
+  setInterval(refresh, 30000);
+}
+
+async function authedFetch(path){
+  const res = await fetch(BASE + path, { headers: { 'X-Admin-Key': ADMIN_KEY } });
+  if(res.status === 403){
+    localStorage.removeItem('pathable_admin_key');
+    location.reload();
+    throw new Error('unauthorized');
+  }
+  return res.json();
+}
+
+async function refresh(){
+  try{
+    const [stats, bugs, flagged] = await Promise.all([
+      fetch(BASE + '/stats').then(r => r.json()),
+      authedFetch('/bugs'),
+      authedFetch('/flagged')
+    ]);
+    renderStats(stats);
+    renderBugs(bugs);
+    renderFlagged(flagged);
+    document.getElementById('meta').textContent = 'last updated ' + new Date().toLocaleTimeString();
+  }catch(e){
+    document.getElementById('meta').textContent = 'update failed — retrying…';
+    console.error(e);
+  }
+}
+
+function renderStats(d){
+  const cards = [
+    ['Unique devices', d.unique_devices],
+    ['Returning', d.returning_devices],
+    ['Markers', d.total_markers_submitted],
+    ['Routes generated', d.routes_generated],
+    ['Bug reports', d.bug_reports]
+  ];
+  document.getElementById('statGrid').innerHTML = cards.map(([label, num]) => `
+    <div class="stat">
+      <div class="num">${num}</div>
+      <div class="label">${label}</div>
+    </div>
+  `).join('');
+
+  const labels = d.markers_by_label || {};
+  const max = Math.max(1, ...Object.values(labels));
+  document.getElementById('labelBars').innerHTML = Object.entries(labels).map(([label, count]) => `
+    <div class="bar-row">
+      <div class="bar-label">${label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(count/max*100).toFixed(0)}%"></div></div>
+      <div class="bar-count">${count}</div>
+    </div>
+  `).join('') || '<div class="empty-muted">no markers yet</div>';
+}
+
+function renderBugs(bugs){
+  const el = document.getElementById('bugList');
+  if(!bugs.length){ el.innerHTML = '<div class="empty-muted">none yet</div>'; return; }
+  el.innerHTML = bugs.map(b => `
+    <div class="bug-item">
+      <div class="bug-msg">${escapeHtml(b.message || '')}</div>
+      <div class="bug-meta">${new Date(b.created_at).toLocaleString()} · ${escapeHtml(b.page_url || '')}</div>
+    </div>
+  `).join('');
+}
+
+function renderFlagged(flagged){
+  const panel = document.getElementById('flaggedPanel');
+  const badge = document.getElementById('flagBadge');
+  const list = document.getElementById('flaggedList');
+
+  if(!Array.isArray(flagged) || flagged.length === 0){
+    panel.classList.remove('has-flags');
+    badge.innerHTML = '';
+    list.innerHTML = '<div class="empty-ok">✓ nothing flagged, all clear</div>';
+    return;
+  }
+
+  panel.classList.add('has-flags');
+  badge.innerHTML = `<span class="flag-count-badge">${flagged.length}</span>`;
+  list.innerHTML = flagged.map(m => `
+    <div class="flag-item" id="flag-${m.id}">
+      <img src="${m.image_url}" onerror="this.style.display='none'">
+      <div class="flag-label">${escapeHtml(m.label)}</div>
+      <div class="flag-reason">${escapeHtml(m.flag_reason || '')}</div>
+      <div class="flag-meta">${new Date(m.created_at).toLocaleString()} · ${m.lat.toFixed(4)}, ${m.lng.toFixed(4)}</div>
+      <div class="flag-actions">
+        <button class="btn-keep" onclick="resolveFlag('${m.id}','keep')">Keep</button>
+        <button class="btn-delete" onclick="resolveFlag('${m.id}','delete')">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function resolveFlag(id, action){
+  const item = document.getElementById('flag-' + id);
+  if(item) item.style.opacity = '0.4';
+  try{
+    await fetch(`${BASE}/flagged/${id}/resolve`, {
+      method: 'POST',
+      headers: { 'X-Admin-Key': ADMIN_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action })
+    });
+    refresh();
+  }catch(e){
+    if(item) item.style.opacity = '1';
+    alert('Could not resolve — check connection and try again.');
+  }
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+if(ADMIN_KEY){ boot(); }
+</script>
+
+</body>
+</html>
