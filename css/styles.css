@@ -1,5 +1,5 @@
 /* ============================================================
-   PathAble — Design tokens (v2: floating glass surfaces)
+   AccessScout — Design tokens (v2: floating glass surfaces)
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
@@ -150,7 +150,7 @@ html, body {
   max-height: 240px; background: var(--glass-strong);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  overflow-y: auto; z-index: 999;
+  overflow-y: auto; z-index: 1001;
   box-shadow: var(--shadow-float);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
