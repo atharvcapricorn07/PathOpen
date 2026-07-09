@@ -2,7 +2,7 @@
 # Manually run the same sweep the 3am cron job runs (POST /verify-pending).
 # Each call only processes up to 25 markers, so this loops until the backlog is clear.
 
-BASE="https://atharvcapricorn07-pathable.hf.space"
+BASE="https://atharvcapricorn07-accessscout.hf.space"
 ADMIN_KEY="pathable_admin_x7f2k9d1"
 
 echo "Running verification sweep..."

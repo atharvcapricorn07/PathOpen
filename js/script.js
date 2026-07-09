@@ -13,7 +13,7 @@ function getDeviceId() {
   return id;
 }
 
-fetch('https://atharvcapricorn07-pathable.hf.space/track', {
+fetch('https://atharvcapricorn07-accessscout.hf.space/track', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ device_id: getDeviceId() })
@@ -304,7 +304,7 @@ document.getElementById('routeBtn').addEventListener('click', () => {
   document.getElementById('cancelRouteBtn').style.display = 'inline-block';
   showNearbyADAMarkers();
 
-  fetch('https://atharvcapricorn07-pathable.hf.space/track-route', {
+  fetch('https://atharvcapricorn07-accessscout.hf.space/track-route', {
     method: 'POST'
   }).catch(() => {});
 });
@@ -350,7 +350,7 @@ document.getElementById('bugReportSubmit').addEventListener('click', async () =>
     return;
   }
   try {
-    const res = await fetch('https://atharvcapricorn07-pathable.hf.space/report-bug', {
+    const res = await fetch('https://atharvcapricorn07-accessscout.hf.space/report-bug', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -380,7 +380,7 @@ async function showNearbyADAMarkers() {
   const RADIUS_METERS = 804; // ~0.5 miles
 
   try {
-    const res = await fetch(`https://atharvcapricorn07-pathable.hf.space/markers?lat=${lat}&lng=${lng}&radius=${RADIUS_METERS}`);
+    const res = await fetch(`https://atharvcapricorn07-accessscout.hf.space/markers?lat=${lat}&lng=${lng}&radius=${RADIUS_METERS}`);
     const markers = await res.json();
 
     // Client-side safety filter: only render markers actually within the radius

@@ -1,6 +1,6 @@
 {
-  "name": "PathAble",
-  "short_name": "PathAble",
+  "name": "AccessScout",
+  "short_name": "AccessScout",
   "description": "Accessible navigation for everyone",
   "start_url": "/index.html",
   "display": "standalone",
