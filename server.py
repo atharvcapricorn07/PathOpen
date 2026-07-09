@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app, origins=["https://pathable-mu.vercel.app", "https://atharvcapricorn07-accessscout.hf.space", "http://127.0.0.1:5000"])
+CORS(app, origins=["https://accessscout.vercel.app", "https://atharvcapricorn07-accessscout.hf.space", "http://127.0.0.1:5000"])
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
