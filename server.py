@@ -6,8 +6,7 @@ from datetime import datetime, timezone
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app, origins=["https://pathopen.vercel.app", "https://atharvcapricorn07-pathopen.hf.space", "http://127.0.0.1:5000"])
-
+CORS(app, origins=["https://pathopen.vercel.app", "https://pathopen.org", "https://www.pathopen.org", "https://atharvcapricorn07-pathopen.hf.space", "http://127.0.0.1:5000"])
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 GROQ_KEY     = os.environ.get("GROQ_API_KEY")
