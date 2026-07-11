@@ -1,5 +1,5 @@
 #!/bin/bash
-BASE="https://atharvcapricorn07-accessscout.hf.space"
+BASE="https://atharvcapricorn07-pathopen.hf.space"
 ADMIN_KEY="pathable_admin_x7f2k9d1"
 
 STATS_JSON=$(curl -s "$BASE/stats")
