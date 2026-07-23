@@ -27,11 +27,35 @@ const wrapper = box.parentNode;
 let lastSuggestions = [];
 let activeInput = null;
 
-const map = L.map('map').setView([47.6062, -122.3321], 13);
+// Start on a world view instead of hardcoding a city — we don't know
+// where the user is yet, and zooming into Seattle for someone in
+// Germany is just confusing. We fly/zoom into their actual location
+// (or a typed start point) once we know it.
+const WORLD_VIEW = { center: [20, 0], zoom: 2 };
+const map = L.map('map', { worldCopyJump: true }).setView(WORLD_VIEW.center, WORLD_VIEW.zoom);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
   subdomains: 'abcd',
   maxZoom: 19
 }).addTo(map);
+
+// Gentle auto-rotation across the globe while we're waiting on a location —
+// purely decorative, stops the instant we have somewhere real to go.
+let idleSpinTimer = null;
+function startIdleSpin() {
+  if (idleSpinTimer) return;
+  idleSpinTimer = setInterval(() => {
+    if (map.getZoom() > WORLD_VIEW.zoom + 0.5) return; // user has interacted/zoomed in, stop nudging
+    const c = map.getCenter();
+    let lng = c.lng + 6;
+    if (lng > 180) lng -= 360;
+    map.panTo([c.lat, lng], { animate: true, duration: 1.4, easeLinearity: 1 });
+  }, 1500);
+}
+function stopIdleSpin() {
+  clearInterval(idleSpinTimer);
+  idleSpinTimer = null;
+}
+startIdleSpin();
 
 let startMarker = null;
 let destMarker = null;
@@ -152,8 +176,9 @@ function requestLocation() {
   navigator.geolocation.getCurrentPosition(
     async pos => {
       hideBanner();
+      stopIdleSpin();
       start = [pos.coords.latitude, pos.coords.longitude];
-      map.setView(start, 16);
+      map.flyTo(start, 16, { duration: 2.2 });
       const address = await reverseGeocode(...start);
       startInput.value = address;
       if (startMarker) startMarker.setLatLng(start).bindPopup("Start (Your location)").openPopup();
@@ -192,7 +217,9 @@ if (isSafari()) {
     });
     document.getElementById('locationBannerDismiss').addEventListener('click', () => {
       hideBanner();
-      map.setView([47.6062, -122.3321], 12);
+      // No more hardcoded Seattle fallback — just stop the idle spin and
+      // leave the user wherever the globe happened to be facing.
+      stopIdleSpin();
     });
 
     if (navigator.permissions) {
@@ -300,7 +327,8 @@ function selectSuggestion(name, lat, lon) {
     else destMarker = L.marker(dest).addTo(map).bindPopup("Destination").openPopup();
   }
   box.innerHTML = '';
-  map.setView([lat, lon], 16);
+  stopIdleSpin();
+  map.flyTo([lat, lon], 16, { duration: 1.8 });
 }
 
 document.addEventListener('click', e => {
@@ -317,6 +345,7 @@ map.on('click', async (e) => {
   endInput.value = address;
   if (destMarker) destMarker.setLatLng(dest).bindPopup("Destination").openPopup();
   else destMarker = L.marker(dest).addTo(map).bindPopup("Destination").openPopup();
+  stopIdleSpin();
   map.setView(dest, map.getZoom());
   box.innerHTML = '';
 });
