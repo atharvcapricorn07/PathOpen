@@ -57,6 +57,53 @@ html, body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* ---------------- Globe intro (decorative, until we know where the user is) ---------------- */
+
+#globeIntro {
+  position: fixed;
+  inset: 0;
+  z-index: 500; /* above the map, below navbar/rail/route controls so the UI stays usable */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 38%, var(--ink-2) 0%, var(--ink) 62%, #0A0F1A 100%);
+  transition: opacity 0.8s var(--ease), visibility 0.8s;
+}
+#globeIntro.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+#globeCanvas {
+  width: min(72vw, 380px);
+  height: min(72vw, 380px);
+  display: block;
+}
+.globe-caption {
+  margin-top: 20px;
+  text-align: center;
+  font-family: var(--font-ui);
+  padding: 0 24px;
+}
+.globe-caption-title {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: 0.01em;
+}
+.globe-caption-sub {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.5);
+}
+
+@media (max-width: 480px) {
+  .globe-caption-title { font-size: 14px; }
+  .globe-caption-sub { font-size: 12px; }
+}
+
 /* ---------------- Floating search card ---------------- */
 
 #navbar {

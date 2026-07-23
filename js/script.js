@@ -30,7 +30,8 @@ let activeInput = null;
 // Start on a world view instead of hardcoding a city — we don't know
 // where the user is yet, and zooming into Seattle for someone in
 // Germany is just confusing. We fly/zoom into their actual location
-// (or a typed start point) once we know it.
+// (or a typed start point) once we know it. Until then, the map sits
+// quietly behind the decorative globe intro (see below).
 const WORLD_VIEW = { center: [20, 0], zoom: 2 };
 const map = L.map('map', { worldCopyJump: true }).setView(WORLD_VIEW.center, WORLD_VIEW.zoom);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -38,24 +39,93 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r
   maxZoom: 19
 }).addTo(map);
 
-// Gentle auto-rotation across the globe while we're waiting on a location —
-// purely decorative, stops the instant we have somewhere real to go.
-let idleSpinTimer = null;
-function startIdleSpin() {
-  if (idleSpinTimer) return;
-  idleSpinTimer = setInterval(() => {
-    if (map.getZoom() > WORLD_VIEW.zoom + 0.5) return; // user has interacted/zoomed in, stop nudging
-    const c = map.getCenter();
-    let lng = c.lng + 6;
-    if (lng > 180) lng -= 360;
-    map.panTo([c.lat, lng], { animate: true, duration: 1.4, easeLinearity: 1 });
-  }, 1500);
-}
-function stopIdleSpin() {
-  clearInterval(idleSpinTimer);
-  idleSpinTimer = null;
-}
-startIdleSpin();
+// --- Decorative rotating dot-globe intro (purely cosmetic, no map data) ---
+// A classic lat/lon "network globe" drawn on canvas: cheap, no textures or
+// external libs, works everywhere. Spins until hideGlobeIntro() is called,
+// at which point it fades out to reveal the real (already-flown-to) map.
+function hideGlobeIntro() { /* replaced below once the globe boots */ }
+(function () {
+  const overlay = document.getElementById('globeIntro');
+  const canvas = document.getElementById('globeCanvas');
+  if (!overlay || !canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  let w, h, cx, cy, radius;
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    w = canvas.width = rect.width * DPR;
+    h = canvas.height = rect.height * DPR;
+    cx = w / 2; cy = h / 2;
+    radius = Math.min(w, h) * 0.42;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Lat/lon dot grid over a unit sphere
+  const points = [];
+  for (let lat = -80; lat <= 80; lat += 10) {
+    for (let lon = -180; lon < 180; lon += 10) {
+      const latR = lat * Math.PI / 180;
+      const lonR = lon * Math.PI / 180;
+      points.push({
+        x: Math.cos(latR) * Math.sin(lonR),
+        y: Math.sin(latR),
+        z: Math.cos(latR) * Math.cos(lonR)
+      });
+    }
+  }
+
+  const TILT = 18 * Math.PI / 180; // fixed axial tilt, purely aesthetic
+  let theta = 0;
+  let running = true;
+
+  function draw() {
+    if (!running) return;
+    theta += 0.006;
+    ctx.clearRect(0, 0, w, h);
+
+    // soft glow behind the sphere
+    const glow = ctx.createRadialGradient(cx, cy, radius * 0.2, cx, cy, radius * 1.35);
+    glow.addColorStop(0, 'rgba(36,84,232,0.22)');
+    glow.addColorStop(1, 'rgba(36,84,232,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 1.35, 0, Math.PI * 2);
+    ctx.fill();
+
+    const drawList = [];
+    for (const p of points) {
+      // spin around Y
+      const x = p.x * Math.cos(theta) - p.z * Math.sin(theta);
+      const z = p.x * Math.sin(theta) + p.z * Math.cos(theta);
+      const y = p.y;
+      // fixed tilt around X
+      const yt = y * Math.cos(TILT) - z * Math.sin(TILT);
+      const zt = y * Math.sin(TILT) + z * Math.cos(TILT);
+      drawList.push({ sx: cx + x * radius, sy: cy - yt * radius, depth: zt });
+    }
+    drawList.sort((a, b) => a.depth - b.depth);
+    for (const d of drawList) {
+      const t = (d.depth + 1) / 2; // 0 = back of sphere, 1 = front
+      const size = (0.9 + t * 1.7) * DPR;
+      const alpha = 0.12 + t * 0.75;
+      ctx.beginPath();
+      ctx.arc(d.sx, d.sy, size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(120,160,255,${alpha})`;
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  hideGlobeIntro = function () {
+    if (!running) return;
+    running = false;
+    overlay.classList.add('hidden');
+    setTimeout(() => { overlay.style.display = 'none'; }, 900);
+  };
+})();
 
 let startMarker = null;
 let destMarker = null;
@@ -171,12 +241,13 @@ async function geocode(q, signal) {
 function requestLocation() {
   if (!navigator.geolocation) {
     showToast('Geolocation not supported by your browser.');
+    hideGlobeIntro();
     return;
   }
   navigator.geolocation.getCurrentPosition(
     async pos => {
       hideBanner();
-      stopIdleSpin();
+      hideGlobeIntro();
       start = [pos.coords.latitude, pos.coords.longitude];
       map.flyTo(start, 16, { duration: 2.2 });
       const address = await reverseGeocode(...start);
@@ -186,6 +257,7 @@ function requestLocation() {
     },
     err => {
       hideBanner();
+      hideGlobeIntro();
       if (err.code === 1) {
         showToast('Location blocked. Enable it in browser settings and refresh.', 5000);
       } else if (err.code === 2) {
@@ -219,7 +291,7 @@ if (isSafari()) {
       hideBanner();
       // No more hardcoded Seattle fallback — just stop the idle spin and
       // leave the user wherever the globe happened to be facing.
-      stopIdleSpin();
+      hideGlobeIntro();
     });
 
     if (navigator.permissions) {
@@ -304,7 +376,7 @@ window.addEventListener('pageshow', () => {
       box.innerHTML = '';
     }
   });
-  input.addEventListener('focus', () => { activeInput = input; });
+  input.addEventListener('focus', () => { activeInput = input; hideGlobeIntro(); });
 });
 
 box.addEventListener('click', e => {
@@ -327,7 +399,7 @@ function selectSuggestion(name, lat, lon) {
     else destMarker = L.marker(dest).addTo(map).bindPopup("Destination").openPopup();
   }
   box.innerHTML = '';
-  stopIdleSpin();
+  hideGlobeIntro();
   map.flyTo([lat, lon], 16, { duration: 1.8 });
 }
 
@@ -345,7 +417,7 @@ map.on('click', async (e) => {
   endInput.value = address;
   if (destMarker) destMarker.setLatLng(dest).bindPopup("Destination").openPopup();
   else destMarker = L.marker(dest).addTo(map).bindPopup("Destination").openPopup();
-  stopIdleSpin();
+  hideGlobeIntro();
   map.setView(dest, map.getZoom());
   box.innerHTML = '';
 });

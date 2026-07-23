@@ -37,6 +37,15 @@
   <div id="suggestions"></div>
   <div id="map"></div>
 
+  <!-- Decorative rotating globe shown until we know where the user is -->
+  <div id="globeIntro">
+    <canvas id="globeCanvas"></canvas>
+    <div class="globe-caption">
+      <div class="globe-caption-title">Finding your place in the world</div>
+      <div class="globe-caption-sub">Allow location above, or just start typing an address</div>
+    </div>
+  </div>
+
   <div class="zoom-controls">
     <button id="zoomInBtn" class="zoom-btn" aria-label="Zoom in">
       <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
