@@ -55,6 +55,12 @@ function haversine([lat1, lon1], [lat2, lon2]) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+// Obstacle-type labels get a coral "avoid this" treatment on the map
+// instead of the standard blue "helpful feature" styling.
+function isObstacleLabel(label) {
+  return label === "a blocked path";
+}
+
 const GEOAPIFY_KEY = '6445d99b338a472c939c735ab3798aba';
 
 async function reverseGeocode(lat, lon) {
@@ -70,8 +76,12 @@ async function reverseGeocode(lat, lon) {
   }
 }
 
-// --- Geocode: Places API first (for businesses), geocoding fallback ---
-async function geocode(q) {
+// --- Geocode: Places API first (for businesses), then Geoapify's
+// Address Autocomplete endpoint (NOT the plain geocode/search endpoint —
+// search assumes a complete, well-formed address; autocomplete is built
+// specifically for partial, as-you-type input, which is what a typeahead
+// dropdown actually needs). ---
+async function geocode(q, signal) {
   const KEY = GEOAPIFY_KEY;
 
   // If we have user location, try Places API first — much better for business name searches
@@ -80,7 +90,7 @@ async function geocode(q) {
     const placesUrl = `https://api.geoapify.com/v2/places?categories=catering,commercial,service,tourism,entertainment,education,healthcare,public_transport&filter=circle:${lon},${lat},50000&bias=proximity:${lon},${lat}&limit=10&name=${encodeURIComponent(q)}&apiKey=${KEY}`;
 
     try {
-      const placesRes = await fetch(placesUrl);
+      const placesRes = await fetch(placesUrl, { signal });
       if (placesRes.ok) {
         const placesData = await placesRes.json();
         if (placesData.features.length > 0) {
@@ -92,26 +102,30 @@ async function geocode(q) {
         }
       }
     } catch(e) {
+      if (e.name === 'AbortError') throw e; // let the caller handle cancellation
       console.error('Places API failed, falling back to geocoding:', e);
     }
   }
 
-  // Fallback: geocoding with circle filter + proximity bias
-  let url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(q)}&limit=10&apiKey=${KEY}`;
+  // Address Autocomplete endpoint — handles partial input ("123 Main" instead
+  // of the full formatted address), which is the whole point of a typeahead.
+  let url = `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(q)}&limit=10&apiKey=${KEY}`;
   if (start) {
     const [lat, lon] = start;
     url += `&filter=circle:${lon},${lat},50000&bias=proximity:${lon},${lat}`;
   }
 
-  const res = await fetch(url);
+  const res = await fetch(url, { signal });
   if (!res.ok) throw new Error('Geocode failed');
   const data = await res.json();
 
-  // If circle filter returned nothing, retry without it
+  // If circle filter returned nothing, retry without it (still autocomplete,
+  // just not restricted to the 50km radius around the user)
   if (data.features.length === 0 && start) {
     const [lat, lon] = start;
     const fallback = await fetch(
-      `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(q)}&limit=10&apiKey=${KEY}&bias=proximity:${lon},${lat}`
+      `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(q)}&limit=10&apiKey=${KEY}&bias=proximity:${lon},${lat}`,
+      { signal }
     );
     if (!fallback.ok) throw new Error('Geocode failed');
     const fallbackData = await fallback.json();
@@ -204,29 +218,57 @@ window.addEventListener('pageshow', () => {
 });
 
 // --- Typeahead ---
+// Each input gets its own debounce timer and AbortController (via closure),
+// so typing in Start and End independently doesn't interfere with each other.
 [startInput, endInput].forEach(input => {
-  input.addEventListener('input', async () => {
+  let debounceTimer = null;
+  let activeController = null;
+
+  input.addEventListener('input', () => {
     activeInput = input;
     const q = input.value.trim();
+
+    // Cancel whatever's still in flight from a previous keystroke — this is
+    // what was causing the "30 second lag": old, slower requests resolving
+    // AFTER newer ones and overwriting the dropdown with stale results.
+    if (activeController) activeController.abort();
+    clearTimeout(debounceTimer);
+
     if (q.length < 3) { box.innerHTML = ''; return; }
-    let results;
-    try { results = await geocode(q); }
-    catch { box.innerHTML = '<div class="suggestion">Network error</div>'; return; }
-    if (!results.length) { box.innerHTML = '<div class="suggestion">No results</div>'; return; }
 
-    // Sort by distance from user if we have their location
-    if (start) {
-      results.sort((a, b) => {
-        const da = haversine(start, [parseFloat(a.lat), parseFloat(a.lon)]);
-        const db = haversine(start, [parseFloat(b.lat), parseFloat(b.lon)]);
-        return da - db;
-      });
-    }
+    // Wait for a short pause in typing before actually firing the request,
+    // instead of hitting the API on every single keystroke.
+    debounceTimer = setTimeout(async () => {
+      activeController = new AbortController();
+      let results;
+      try {
+        results = await geocode(q, activeController.signal);
+      } catch (e) {
+        if (e.name === 'AbortError') return; // superseded by a newer keystroke, ignore
+        box.innerHTML = '<div class="suggestion">Network error</div>';
+        return;
+      }
 
-    lastSuggestions = results;
-    box.innerHTML = results.slice(0, 5).map(r =>
-      `<div class="suggestion" data-lat="${r.lat}" data-lon="${r.lon}">${r.display_name}</div>`
-    ).join('');
+      // Guard against the (rare) case this resolves after the input changed
+      // again but wasn't caught by the abort in time.
+      if (input.value.trim() !== q) return;
+
+      if (!results.length) { box.innerHTML = '<div class="suggestion">No results</div>'; return; }
+
+      // Sort by distance from user if we have their location
+      if (start) {
+        results.sort((a, b) => {
+          const da = haversine(start, [parseFloat(a.lat), parseFloat(a.lon)]);
+          const db = haversine(start, [parseFloat(b.lat), parseFloat(b.lon)]);
+          return da - db;
+        });
+      }
+
+      lastSuggestions = results;
+      box.innerHTML = results.slice(0, 5).map(r =>
+        `<div class="suggestion" data-lat="${r.lat}" data-lon="${r.lon}">${r.display_name}</div>`
+      ).join('');
+    }, 200);
   });
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter' && lastSuggestions.length) {
@@ -388,10 +430,17 @@ async function showNearbyADAMarkers() {
     // the 0.5mi limit even if server-side filtering is missing or misconfigured.
     const nearby = markers.filter(m => haversine([lat, lng], [m.lat, m.lng]) <= RADIUS_METERS);
 
+    if (nearby.length === 0) {
+      // Empty-state nudge: this is the exact moment a user discovers there's
+      // no data here, so it's the highest-intent moment to ask them to add
+      // the first marker themselves.
+      showToast('No accessibility info here yet — tap Report Feature to add the first one.', 5000);
+    }
+
     nearby.forEach(markerData => {
       const icon = L.divIcon({
         className: 'custom-marker-label',
-        html: `<div class="marker-label">${markerData.label}</div>`,
+        html: `<div class="marker-label${isObstacleLabel(markerData.label) ? ' is-obstacle' : ''}">${markerData.label}</div>`,
         iconSize: [100, 40],
         iconAnchor: [50, 20]
       });

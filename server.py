@@ -14,6 +14,7 @@ ADMIN_KEY    = os.environ.get("ADMIN_KEY")  # required to hit /flagged, /verify-
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+
 DUPLICATE_RADIUS_METERS = 15
 ABSOLUTE_BLOCK_METERS   = 5
 VALID_LABELS = ["a staircase", "a ramp", "a wheelchair", "an elevator", "a curb cut", "a handrail"]
