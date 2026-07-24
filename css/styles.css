@@ -293,6 +293,15 @@ body.nav-active #cancelRouteBtn {
 body.nav-active #navMode {
   opacity: 1;
 }
+/* Only the visible cards should ever catch clicks, and only once nav
+   mode is actually on — this is what fixes Get Directions/Cancel Route
+   getting silently swallowed by an invisible-but-still-hit-testable bar
+   sitting in the exact same spot when nav mode was off. */
+body.nav-active #navInstructionCard,
+body.nav-active #navBottomBar,
+body.nav-active #navCallout.show {
+  pointer-events: auto;
+}
 
 #navTopStack {
   position: fixed;
@@ -306,7 +315,6 @@ body.nav-active #navMode {
 }
 
 #navCallout {
-  pointer-events: auto;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -342,7 +350,6 @@ body.nav-active #navMode {
 #navCalloutIcon svg { width: 20px; height: 20px; }
 
 #navInstructionCard {
-  pointer-events: auto;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -387,7 +394,6 @@ body.nav-active #navMode {
 }
 
 #navBottomBar {
-  pointer-events: auto;
   position: fixed;
   bottom: max(20px, calc(20px + env(safe-area-inset-bottom)));
   left: max(14px, env(safe-area-inset-left));
