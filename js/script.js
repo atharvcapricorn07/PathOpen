@@ -610,7 +610,10 @@ document.getElementById('routeBtn').addEventListener('click', () => {
     showAlternatives: false,
     lineOptions: { styles: [{ color: '#2454E8', weight: 4 }] }
   }).addTo(map);
+  routeControl.on('routesfound', onRoutesFound);
   routeActive = true;
+  document.getElementById('routeBtn').style.display = 'none';
+  document.getElementById('startNavBtn').style.display = 'flex';
   document.getElementById('cancelRouteBtn').style.display = 'inline-block';
   showNearbyADAMarkers();
 
@@ -620,11 +623,15 @@ document.getElementById('routeBtn').addEventListener('click', () => {
 });
 
 document.getElementById('cancelRouteBtn').addEventListener('click', () => {
+  if (navActive) exitNavMode();
   if (routeControl) { map.removeControl(routeControl); routeControl = null; }
   adaMarkers.forEach(m => map.removeLayer(m));
   adaMarkers = [];
   dest = null;
   routeActive = false;
+  currentRoute = null;
+  document.getElementById('routeBtn').style.display = 'block';
+  document.getElementById('startNavBtn').style.display = 'none';
   document.getElementById('cancelRouteBtn').style.display = 'none';
   if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
   endInput.value = '';
@@ -717,7 +724,246 @@ async function showNearbyADAMarkers() {
         <img src="${markerData.image_url}" style="width:150px;height:150px;object-fit:cover;border-radius:8px;display:block;" />
         <div style="text-align:center;margin-top:6px;font-weight:bold;">${markerData.label}</div>
       `, { maxWidth: 170 });
+      marker.a11yLabel = markerData.label;
+      marker.a11yIsObstacle = isObstacleLabel(markerData.label);
       adaMarkers.push(marker);
     });
   } catch (e) { console.error('Failed to load ADA markers:', e); }
 }
+
+// =====================================================================
+// --- Turn-by-turn navigation mode ---
+// Surfaces the turn-by-turn instructions OSRM already returns via Leaflet
+// Routing Machine (its own instructions panel is hidden by CSS — we build
+// our own UI on top of the same data instead of a second API integration).
+// =====================================================================
+
+let currentRoute = null;      // { coordinates, instructions, summary } from LRM
+let navActive = false;
+let navWatchId = null;
+let currentStepIndex = 0;
+let navUserMarker = null;
+let offRouteSince = null;
+let lastRerouteTime = 0;
+let announcedMarkers = new Set();
+let lastNavCenter = null;
+
+const AVG_WALK_SPEED_MPS = 1.35; // ~3 mph — this is a pedestrian accessibility app,
+                                  // so ETA is estimated from walking pace rather than
+                                  // trusting OSRM's (possibly driving-profile) timing.
+
+function onRoutesFound(e) {
+  currentRoute = e.routes[0];
+  if (navActive) {
+    currentStepIndex = 0;
+    updateNavInstructionDisplay(lastNavCenter);
+  }
+}
+
+// Single up-arrow, rotated per maneuver — same trick Google Maps/Waze use,
+// far simpler and more consistent than a distinct icon per turn type.
+const NAV_ARROW_SVG = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 4l7 15-7-3.5L5 19l7-15z" fill="currentColor"/></svg>';
+const NAV_ROUNDABOUT_SVG = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3a9 9 0 100 18 9 9 0 000-18z" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const NAV_FLAG_SVG = '<svg viewBox="0 0 24 24" fill="none"><path d="M6 3v18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6 4h12l-3 3.5L18 11H6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+
+const TURN_ROTATIONS = {
+  Straight: 0, SlightRight: 30, Right: 90, SharpRight: 130,
+  TurnAround: 180, SharpLeft: -130, Left: -90, SlightLeft: -30,
+  StartAt: 0, WaypointReached: 0, Via: 0
+};
+
+function setNavIcon(type) {
+  const iconEl = document.getElementById('navIcon');
+  if (type === 'Roundabout' || type === 'EnterRoundabout' || type === 'ExitRoundabout') {
+    iconEl.innerHTML = NAV_ROUNDABOUT_SVG;
+  } else if (type === 'DestinationReached') {
+    iconEl.innerHTML = NAV_FLAG_SVG;
+  } else {
+    iconEl.innerHTML = NAV_ARROW_SVG;
+    const deg = TURN_ROTATIONS[type] ?? 0;
+    iconEl.querySelector('svg').style.transform = `rotate(${deg}deg)`;
+  }
+}
+
+function formatDistance(meters) {
+  if (meters == null || isNaN(meters)) return '—';
+  const feet = meters / 0.3048;
+  if (feet < 528) return `${Math.max(0, Math.round(feet / 10) * 10)} ft`;
+  const miles = meters / 1609.34;
+  return `${miles.toFixed(1)} mi`;
+}
+
+function formatDuration(seconds) {
+  if (seconds == null || isNaN(seconds)) return '—';
+  const mins = Math.round(seconds / 60);
+  if (mins < 1) return '< 1 min';
+  if (mins < 60) return `${mins} min`;
+  return `${Math.floor(mins / 60)} hr ${mins % 60} min`;
+}
+
+function updateNavInstructionDisplay(userPos) {
+  if (!currentRoute) return;
+  const instructions = currentRoute.instructions;
+  const instr = instructions[currentStepIndex];
+  if (!instr) return;
+
+  const maneuverPt = currentRoute.coordinates[instr.index];
+  const distToManeuver = userPos && maneuverPt
+    ? haversine(userPos, [maneuverPt.lat, maneuverPt.lng])
+    : instr.distance;
+
+  document.getElementById('navStreet').textContent = instr.text || instr.road || 'Continue straight';
+  document.getElementById('navDistance').textContent = `In ${formatDistance(distToManeuver)}`;
+  setNavIcon(instr.type);
+
+  // Remaining distance = distance to the current maneuver + every step after it
+  let remaining = distToManeuver || 0;
+  for (let i = currentStepIndex + 1; i < instructions.length; i++) {
+    remaining += instructions[i].distance || 0;
+  }
+  document.getElementById('navRemainingDistance').textContent = formatDistance(remaining);
+  document.getElementById('navEta').textContent = formatDuration(remaining / AVG_WALK_SPEED_MPS);
+}
+
+function showNavCallout(marker, distance) {
+  const el = document.getElementById('navCallout');
+  const iconEl = document.getElementById('navCalloutIcon');
+  const textEl = document.getElementById('navCalloutText');
+  const obstacle = !!marker.a11yIsObstacle;
+
+  el.classList.toggle('is-obstacle', obstacle);
+  iconEl.innerHTML = obstacle
+    ? '<svg viewBox="0 0 22 22" fill="none"><path d="M11 3l9 16H2l9-16z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M11 9v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="11" cy="15.6" r="0.9" fill="currentColor"/></svg>'
+    : '<svg viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8.5" stroke="currentColor" stroke-width="1.7"/><path d="M7.5 11.2l2.3 2.3 4.7-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  textEl.textContent = `${marker.a11yLabel} ahead in ${formatDistance(distance)}`;
+
+  el.classList.add('show');
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => el.classList.remove('show'), 6000);
+}
+
+function checkNearbyMarkers(userPos) {
+  const PROXIMITY_M = 120;
+  for (const m of adaMarkers) {
+    if (announcedMarkers.has(m)) continue;
+    const ll = m.getLatLng();
+    const d = haversine(userPos, [ll.lat, ll.lng]);
+    if (d <= PROXIMITY_M) {
+      announcedMarkers.add(m);
+      showNavCallout(m, d);
+      break; // one callout at a time keeps it readable
+    }
+  }
+}
+
+function updateUserDot(userPos) {
+  const icon = L.divIcon({
+    className: 'user-dot-wrapper',
+    html: '<div class="user-dot"><div class="user-dot-pulse"></div><div class="user-dot-core"></div></div>',
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
+  });
+  if (navUserMarker) {
+    navUserMarker.setLatLng(userPos);
+  } else {
+    navUserMarker = L.marker(userPos, { icon, zIndexOffset: 1000 }).addTo(map);
+  }
+}
+
+function nearestRouteDistance(userPos) {
+  if (!currentRoute) return Infinity;
+  let best = Infinity;
+  const coords = currentRoute.coordinates;
+  const step = Math.max(1, Math.floor(coords.length / 200));
+  for (let i = 0; i < coords.length; i += step) {
+    const d = haversine(userPos, [coords[i].lat, coords[i].lng]);
+    if (d < best) best = d;
+  }
+  return best;
+}
+
+function triggerReroute(userPos) {
+  lastRerouteTime = Date.now();
+  offRouteSince = null;
+  showToast('Off route — recalculating…', 3000);
+  routeControl.setWaypoints([L.latLng(userPos), L.latLng(dest)]);
+}
+
+function onNavPosition(pos) {
+  const userPos = [pos.coords.latitude, pos.coords.longitude];
+  lastNavCenter = userPos;
+  updateUserDot(userPos);
+
+  const mapCenter = map.getCenter();
+  if (haversine(userPos, [mapCenter.lat, mapCenter.lng]) > 4) {
+    map.setView(userPos, Math.max(map.getZoom(), 17), { animate: true, duration: 0.5 });
+  }
+
+  if (!dest) return;
+  if (haversine(userPos, dest) < 15) {
+    showToast("You've arrived!", 4000);
+    exitNavMode();
+    return;
+  }
+
+  if (!currentRoute) return;
+
+  const instructions = currentRoute.instructions;
+  while (currentStepIndex < instructions.length - 1) {
+    const pt = currentRoute.coordinates[instructions[currentStepIndex].index];
+    if (!pt || haversine(userPos, [pt.lat, pt.lng]) > 12) break;
+    currentStepIndex++;
+  }
+  updateNavInstructionDisplay(userPos);
+  checkNearbyMarkers(userPos);
+
+  const nearest = nearestRouteDistance(userPos);
+  if (nearest > 50) {
+    if (!offRouteSince) offRouteSince = Date.now();
+    else if (Date.now() - offRouteSince > 8000 && Date.now() - lastRerouteTime > 15000) {
+      triggerReroute(userPos);
+    }
+  } else {
+    offRouteSince = null;
+  }
+}
+
+function onNavPositionError() {
+  showToast('Lost GPS signal — navigation paused.', 4000);
+}
+
+function enterNavMode() {
+  if (!currentRoute) return showToast('Set a route first.');
+  if (!navigator.geolocation) return showToast('Geolocation not supported by your browser.');
+
+  navActive = true;
+  currentStepIndex = 0;
+  offRouteSince = null;
+  announcedMarkers = new Set();
+  document.body.classList.add('nav-active');
+  document.getElementById('navCallout').classList.remove('show');
+  updateNavInstructionDisplay(start);
+
+  navWatchId = navigator.geolocation.watchPosition(onNavPosition, onNavPositionError, {
+    enableHighAccuracy: true,
+    maximumAge: 2000,
+    timeout: 10000
+  });
+}
+
+function exitNavMode() {
+  navActive = false;
+  document.body.classList.remove('nav-active');
+  if (navWatchId != null) {
+    navigator.geolocation.clearWatch(navWatchId);
+    navWatchId = null;
+  }
+  if (navUserMarker) {
+    map.removeLayer(navUserMarker);
+    navUserMarker = null;
+  }
+  document.getElementById('navCallout').classList.remove('show');
+}
+
+document.getElementById('startNavBtn').addEventListener('click', enterNavMode);
+document.getElementById('navExitBtn').addEventListener('click', exitNavMode);
