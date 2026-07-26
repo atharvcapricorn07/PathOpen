@@ -224,27 +224,35 @@ html, body {
 
 /* ---------------- Primary route controls ---------------- */
 
-#routeBtn {
+/* All three bottom buttons live in one flex row now — this is what
+   guarantees Start Navigation and Cancel Route never overlap, at any
+   screen width, instead of two independently-centered/right-aligned
+   elements whose widths could collide on narrow phones. */
+.bottom-controls {
   position: fixed;
   bottom: max(20px, calc(20px + env(safe-area-inset-bottom)));
   left: 50%;
-  transform: translateX(-50%); z-index: 1000;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 32px);
+}
+
+#routeBtn {
   padding: 15px 32px; background: var(--signal); color: var(--white);
   border: none; border-radius: var(--radius-pill);
   font-family: var(--font-ui); font-size: 15px; font-weight: 700;
   letter-spacing: 0.01em;
   cursor: pointer; box-shadow: 0 12px 28px rgba(36,84,232,0.38), var(--shadow-soft);
   transition: background 0.15s, transform 0.15s var(--ease); white-space: nowrap;
-  max-width: calc(100% - 160px);
+  flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
 }
 #routeBtn:hover { background: var(--signal-dark); }
-#routeBtn:active { transform: translateX(-50%) scale(0.96); }
+#routeBtn:active { transform: scale(0.96); }
 
 #cancelRouteBtn {
-  position: fixed;
-  bottom: max(20px, calc(20px + env(safe-area-inset-bottom)));
-  right: max(16px, env(safe-area-inset-right));
-  z-index: 1000;
   padding: 13px 22px; color: var(--ink);
   background: var(--glass-strong);
   backdrop-filter: var(--glass-blur);
@@ -253,35 +261,29 @@ html, body {
   font-family: var(--font-ui); font-size: 14px;
   font-weight: 700; cursor: pointer; box-shadow: var(--shadow-float);
   transition: background 0.15s, transform 0.15s var(--ease); white-space: nowrap;
-  min-height: 44px;
+  min-height: 44px; flex-shrink: 0;
 }
 #cancelRouteBtn:hover { background: var(--white); }
 #cancelRouteBtn:active { transform: scale(0.96); }
 
-/* Start Navigation shares #routeBtn's exact position/shape — it's a
-   state swap (preview → ready-to-navigate), not a new visual language. */
+/* Start Navigation shares #routeBtn's exact shape — it's a state swap
+   (preview → ready-to-navigate), not a new visual language. */
 #startNavBtn {
-  position: fixed;
-  bottom: max(20px, calc(20px + env(safe-area-inset-bottom)));
-  left: 50%;
-  transform: translateX(-50%); z-index: 1000;
   padding: 15px 30px; background: var(--signal); color: var(--white);
   border: none; border-radius: var(--radius-pill);
   font-family: var(--font-ui); font-size: 15px; font-weight: 700;
   letter-spacing: 0.01em;
   cursor: pointer; box-shadow: 0 12px 28px rgba(36,84,232,0.38), var(--shadow-soft);
   transition: background 0.15s, transform 0.15s var(--ease); white-space: nowrap;
-  max-width: calc(100% - 160px);
   display: flex; align-items: center; gap: 8px;
+  flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
 }
 #startNavBtn svg { width: 16px; height: 16px; flex-shrink: 0; }
 #startNavBtn:hover { background: var(--signal-dark); }
-#startNavBtn:active { transform: translateX(-50%) scale(0.96); }
+#startNavBtn:active { transform: scale(0.96); }
 
-/* Turn-by-turn is a phone-in-hand feature — walking while staring at a
-   button under your mouse cursor doesn't make sense. JS also gates this
-   (see IS_MOBILE), this media query is the CSS-side backstop for any
-   device with a mouse/trackpad. */
+/* Only ever a mouse/trackpad hides this — see IS_MOBILE gating in JS,
+   which this backs up for any device with a fine pointer. */
 @media (hover: hover) and (pointer: fine) {
   #startNavBtn { display: none !important; }
 }
@@ -317,15 +319,13 @@ html, body {
 
 /* Chrome that steps aside while navigating — same elements, just faded
    and nudged out of the way rather than snapped away instantly. */
-#navbar, .action-rail, .zoom-controls, #routeBtn, #startNavBtn, #cancelRouteBtn, #routeSummary {
+#navbar, .action-rail, .zoom-controls, .bottom-controls, #routeSummary {
   transition: opacity 0.35s var(--ease), transform 0.35s var(--ease);
 }
 body.nav-active #navbar,
 body.nav-active .action-rail,
 body.nav-active .zoom-controls,
-body.nav-active #routeBtn,
-body.nav-active #startNavBtn,
-body.nav-active #cancelRouteBtn,
+body.nav-active .bottom-controls,
 body.nav-active #routeSummary {
   opacity: 0;
   pointer-events: none;
@@ -530,10 +530,12 @@ body.nav-active #navCallout.show {
 }
 
 @media (max-width: 480px) {
-  #startNavBtn {
-    font-size: 14px; padding: 13px 24px;
+  .bottom-controls {
     bottom: max(16px, calc(16px + env(safe-area-inset-bottom)));
-    max-width: calc(100% - 140px);
+    gap: 8px;
+  }
+  #startNavBtn {
+    font-size: 13.5px; padding: 13px 18px;
   }
   #navInstructionCard { height: 70px; padding: 0 16px; gap: 12px; }
   #navIcon { width: 40px; height: 40px; }
@@ -846,11 +848,8 @@ a.rail-link { display: block; text-decoration: none; }
 
   #routeBtn {
     font-size: 14px; padding: 13px 26px;
-    bottom: max(16px, calc(16px + env(safe-area-inset-bottom)));
-    max-width: calc(100% - 140px);
   }
   #cancelRouteBtn {
-    bottom: max(16px, calc(16px + env(safe-area-inset-bottom)));
     padding: 10px 18px; font-size: 13px;
   }
 
