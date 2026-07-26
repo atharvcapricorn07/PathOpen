@@ -3,6 +3,14 @@ let start = null, dest = null, routeControl;
 let routeActive = false;
 let adaMarkers = [];
 
+// Turn-by-turn ("Start Navigation") and compass-driven map rotation only
+// make sense on a phone in your hand. Pointer/hover media features are a
+// far more reliable signal for this than user-agent sniffing (works for
+// tablets, foldables, desktop touchscreens, etc. without a UA regex to
+// maintain). Mirrored in CSS via `@media (hover: hover) and (pointer: fine)`.
+const IS_MOBILE = window.matchMedia('(pointer: coarse)').matches ||
+                   window.matchMedia('(hover: none)').matches;
+
 // --- Anonymous device tracking (no login, just a local ID) ---
 function getDeviceId() {
   let id = localStorage.getItem('pathable_device_id');
@@ -38,6 +46,16 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r
   subdomains: 'abcd',
   maxZoom: 19
 }).addTo(map);
+
+// Leaflet's control container (attribution, etc.) lives inside #map by
+// default, which would otherwise spin along with the tiles during
+// heading-up navigation. Move it out to the non-rotating viewport wrapper
+// — same visual position, just immune to #map's rotation transform.
+const mapViewportEl = document.getElementById('mapViewport');
+const leafletControlContainer = document.querySelector('#map .leaflet-control-container');
+if (mapViewportEl && leafletControlContainer) {
+  mapViewportEl.appendChild(leafletControlContainer);
+}
 
 // --- Decorative rotating globe intro (purely cosmetic — real coastlines,
 // no map data or network calls involved). Land outlines are Natural Earth's
@@ -613,7 +631,7 @@ document.getElementById('routeBtn').addEventListener('click', () => {
   routeControl.on('routesfound', onRoutesFound);
   routeActive = true;
   document.getElementById('routeBtn').style.display = 'none';
-  document.getElementById('startNavBtn').style.display = 'flex';
+  document.getElementById('startNavBtn').style.display = IS_MOBILE ? 'flex' : 'none';
   document.getElementById('cancelRouteBtn').style.display = 'inline-block';
   showNearbyADAMarkers();
 
@@ -633,6 +651,7 @@ document.getElementById('cancelRouteBtn').addEventListener('click', () => {
   document.getElementById('routeBtn').style.display = 'block';
   document.getElementById('startNavBtn').style.display = 'none';
   document.getElementById('cancelRouteBtn').style.display = 'none';
+  document.getElementById('routeSummary').classList.remove('show');
   if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
   endInput.value = '';
   showToast('Route cancelled. Pick a new destination.');
@@ -754,10 +773,30 @@ const AVG_WALK_SPEED_MPS = 1.35; // ~3 mph — this is a pedestrian accessibilit
 
 function onRoutesFound(e) {
   currentRoute = e.routes[0];
+  renderRouteSummary(currentRoute);
   if (navActive) {
     currentStepIndex = 0;
     updateNavInstructionDisplay(lastNavCenter);
   }
+}
+
+// The routing server (OSRM's public demo, driving profile) gives us a real
+// road-network distance and its own driving-time estimate. This app is
+// built for pedestrians, so the walk time is derived from that distance at
+// a fixed walking pace rather than trusted from the router. Showing both,
+// clearly labeled, avoids the confusing case of a multi-mile route reading
+// as a 6-minute trip (that's the drive time) or a 5-mile walk quietly
+// showing a driving-fast number with no explanation of which it is.
+function renderRouteSummary(route) {
+  const panel = document.getElementById('routeSummary');
+  if (!panel || !route || !route.summary) return;
+  const distMeters = route.summary.totalDistance;
+  const driveSeconds = route.summary.totalTime;
+  const walkSeconds = distMeters / AVG_WALK_SPEED_MPS;
+  document.getElementById('routeSummaryDistance').textContent = formatDistance(distMeters);
+  document.getElementById('routeSummaryWalk').textContent = `${formatDuration(walkSeconds)} walk`;
+  document.getElementById('routeSummaryDrive').textContent = `${formatDuration(driveSeconds)} drive`;
+  panel.classList.add('show');
 }
 
 // Single up-arrow, rotated per maneuver — same trick Google Maps/Waze use,
@@ -822,7 +861,7 @@ function updateNavInstructionDisplay(userPos) {
     remaining += instructions[i].distance || 0;
   }
   document.getElementById('navRemainingDistance').textContent = formatDistance(remaining);
-  document.getElementById('navEta').textContent = formatDuration(remaining / AVG_WALK_SPEED_MPS);
+  document.getElementById('navEta').textContent = `${formatDuration(remaining / AVG_WALK_SPEED_MPS)} walk`;
 }
 
 function showNavCallout(marker, distance) {
@@ -857,17 +896,21 @@ function checkNearbyMarkers(userPos) {
 }
 
 function updateUserDot(userPos) {
-  const icon = L.divIcon({
-    className: 'user-dot-wrapper',
-    html: '<div class="user-dot"><div class="user-dot-pulse"></div><div class="user-dot-core"></div></div>',
-    iconSize: [20, 20],
-    iconAnchor: [10, 10]
-  });
   if (navUserMarker) {
     navUserMarker.setLatLng(userPos);
-  } else {
-    navUserMarker = L.marker(userPos, { icon, zIndexOffset: 1000 }).addTo(map);
+    return;
   }
+  // Note the nested <div class="user-dot">: Leaflet positions the outer
+  // divIcon element itself via a translate transform, so our own rotation
+  // (applied during heading-up navigation, see renderHeading) targets this
+  // inner div instead — otherwise we'd clobber Leaflet's positioning.
+  const icon = L.divIcon({
+    className: 'user-dot-wrapper',
+    html: '<div class="user-dot"><div class="user-dot-pulse"></div><div class="user-dot-heading"></div><div class="user-dot-core"></div></div>',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20]
+  });
+  navUserMarker = L.marker(userPos, { icon, zIndexOffset: 1000 }).addTo(map);
 }
 
 function nearestRouteDistance(userPos) {
@@ -932,6 +975,127 @@ function onNavPositionError() {
   showToast('Lost GPS signal — navigation paused.', 4000);
 }
 
+// =====================================================================
+// --- Heading-up map rotation ---
+// Rotates the map itself (not just the user marker) to match the way the
+// phone is pointed, like a normal turn-by-turn nav app. Only ever active
+// on mobile, during a walking nav session — compass data isn't available
+// (or meaningful) on desktop, and rotating a stationary map with the mouse
+// hovering over it would just be disorienting.
+//
+// How it works: #mapViewport is a fixed, never-rotating window. #map sits
+// inside it; while rotating, #map is resized to a square as large as the
+// viewport's diagonal (see sizeMapForRotation) so a CSS rotate() on it
+// never reveals blank space past the edge of loaded tiles. Only #map's
+// *size* changes tile load — rotation itself is a free GPU transform and
+// triggers no extra network requests, and the square is only in effect
+// while nav mode is on, so ordinary browsing keeps the cheap 1x viewport
+// footprint. Individual markers (user dot, ADA labels) get an equal and
+// opposite rotation on their own inner element so they stay upright.
+// =====================================================================
+
+const mapEl = document.getElementById('map');
+let headingActive = false;
+let compassListenerAttached = false;
+let currentAppliedHeading = 0;
+let pendingHeading = null;
+let headingRAFId = null;
+
+function attachCompassListener() {
+  if (compassListenerAttached) return;
+  compassListenerAttached = true;
+  window.addEventListener('deviceorientationabsolute', onDeviceOrientation);
+  window.addEventListener('deviceorientation', onDeviceOrientation);
+}
+
+function requestCompassPermission() {
+  if (typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // iOS Safari requires this to be called from a user gesture — the
+    // Start Navigation tap that leads here satisfies that.
+    DeviceOrientationEvent.requestPermission().then(state => {
+      if (state === 'granted') attachCompassListener();
+    }).catch(() => {});
+  } else {
+    attachCompassListener();
+  }
+}
+
+function onDeviceOrientation(e) {
+  if (!headingActive) return;
+  let heading;
+  if (typeof e.webkitCompassHeading === 'number' && e.webkitCompassHeading >= 0) {
+    heading = e.webkitCompassHeading; // iOS: already true compass heading, 0 = north, CW
+  } else if (e.alpha != null) {
+    heading = (360 - e.alpha) % 360; // best-effort for other browsers
+  } else {
+    return;
+  }
+  pendingHeading = heading;
+  if (headingRAFId == null) headingRAFId = requestAnimationFrame(applyPendingHeading);
+}
+
+function applyPendingHeading() {
+  headingRAFId = null;
+  if (pendingHeading == null) return;
+  let diff = pendingHeading - currentAppliedHeading;
+  diff = ((diff + 180) % 360 + 360) % 360 - 180; // shortest signed angular distance
+  if (Math.abs(diff) < 1) return; // skip sub-degree jitter — cheaper and steadier
+  currentAppliedHeading = (currentAppliedHeading + diff * 0.35 + 360) % 360;
+  renderHeading(currentAppliedHeading);
+}
+
+function renderHeading(heading) {
+  mapEl.style.transform = `translate(-50%, -50%) rotate(${-heading}deg)`;
+  const counter = `rotate(${heading}deg)`;
+  if (navUserMarker && navUserMarker._icon && navUserMarker._icon.firstElementChild) {
+    navUserMarker._icon.firstElementChild.style.transform = counter;
+  }
+  for (const m of adaMarkers) {
+    if (m._icon && m._icon.firstElementChild) {
+      m._icon.firstElementChild.style.transform = counter;
+    }
+  }
+}
+
+// Blows up #map to a square covering the viewport's diagonal (enable) or
+// snaps it back to a plain full-bleed rect (disable). invalidateSize once
+// per call — not per frame — keeps this cheap.
+function sizeMapForRotation(on) {
+  if (on) {
+    const w = mapViewportEl.clientWidth, h = mapViewportEl.clientHeight;
+    const diag = Math.ceil(Math.sqrt(w * w + h * h)) + 40;
+    mapEl.classList.add('is-rotating');
+    mapEl.style.left = '50%';
+    mapEl.style.top = '50%';
+    mapEl.style.right = 'auto';
+    mapEl.style.bottom = 'auto';
+    mapEl.style.width = diag + 'px';
+    mapEl.style.height = diag + 'px';
+    mapEl.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+  } else {
+    mapEl.classList.remove('is-rotating');
+    mapEl.style.left = '';
+    mapEl.style.top = '';
+    mapEl.style.right = '';
+    mapEl.style.bottom = '';
+    mapEl.style.width = '';
+    mapEl.style.height = '';
+    mapEl.style.transform = '';
+    if (navUserMarker && navUserMarker._icon && navUserMarker._icon.firstElementChild) {
+      navUserMarker._icon.firstElementChild.style.transform = '';
+    }
+    for (const m of adaMarkers) {
+      if (m._icon && m._icon.firstElementChild) m._icon.firstElementChild.style.transform = '';
+    }
+  }
+  map.invalidateSize();
+}
+
+window.addEventListener('resize', () => {
+  if (headingActive) sizeMapForRotation(true);
+});
+
 function enterNavMode() {
   if (!currentRoute) return showToast('Set a route first.');
   if (!navigator.geolocation) return showToast('Geolocation not supported by your browser.');
@@ -943,6 +1107,12 @@ function enterNavMode() {
   document.body.classList.add('nav-active');
   document.getElementById('navCallout').classList.remove('show');
   updateNavInstructionDisplay(start);
+
+  if (IS_MOBILE) {
+    headingActive = true;
+    sizeMapForRotation(true);
+    requestCompassPermission();
+  }
 
   navWatchId = navigator.geolocation.watchPosition(onNavPosition, onNavPositionError, {
     enableHighAccuracy: true,
@@ -957,6 +1127,12 @@ function exitNavMode() {
   if (navWatchId != null) {
     navigator.geolocation.clearWatch(navWatchId);
     navWatchId = null;
+  }
+  if (headingActive) {
+    headingActive = false;
+    pendingHeading = null;
+    currentAppliedHeading = 0;
+    sizeMapForRotation(false);
   }
   if (navUserMarker) {
     map.removeLayer(navUserMarker);

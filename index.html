@@ -35,7 +35,17 @@
   </div>
 
   <div id="suggestions"></div>
-  <div id="map"></div>
+  <div id="mapViewport"><div id="map"></div></div>
+
+  <!-- Distance + ETA, shown once a route is computed. Labeled walk vs.
+       drive so the numbers can't be misread as one or the other. -->
+  <div id="routeSummary">
+    <span id="routeSummaryDistance">—</span>
+    <span class="route-summary-dot">&middot;</span>
+    <span id="routeSummaryWalk">—</span>
+    <span class="route-summary-dot">&middot;</span>
+    <span id="routeSummaryDrive">—</span>
+  </div>
 
   <!-- Decorative rotating globe shown until we know where the user is -->
   <div id="globeIntro">

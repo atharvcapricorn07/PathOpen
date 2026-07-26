@@ -29,6 +29,7 @@ VALID_LABELS = ["a staircase", "a ramp", "a wheelchair", "an elevator", "a curb 
 # vision call sites stay in sync if this needs to change again.
 VISION_MODEL = "qwen/qwen3.6-27b"
 
+
 def haversine_meters(lat1, lon1, lat2, lon2):
     R = 6371000
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
