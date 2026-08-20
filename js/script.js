@@ -746,6 +746,9 @@ async function showNearbyADAMarkers() {
       marker.a11yLabel = markerData.label;
       marker.a11yIsObstacle = isObstacleLabel(markerData.label);
       adaMarkers.push(marker);
+      // Same reasoning as the user dot: don't leave a freshly-added marker
+      // unrotated until the next compass tick if heading-up is already on.
+      if (headingActive) applyHeadingToMarkerIcon(marker);
     });
   } catch (e) { console.error('Failed to load ADA markers:', e); }
 }
@@ -911,6 +914,17 @@ function updateUserDot(userPos) {
     iconAnchor: [20, 20]
   });
   navUserMarker = L.marker(userPos, { icon, zIndexOffset: 1000 }).addTo(map);
+
+  // If rotation is already active by the time this marker is created (it
+  // almost always is, since nav mode turns rotation on first), give it the
+  // current counter-rotation right away instead of waiting on the next
+  // compass event — otherwise the dot renders sideways for a beat, and if
+  // the compass is slow to fire (or the heading barely changes, which the
+  // sub-degree jitter filter in applyPendingHeading skips entirely) it can
+  // stay wrong far longer than "a beat".
+  if (headingActive) {
+    applyHeadingToMarkerIcon(navUserMarker);
+  }
 }
 
 function nearestRouteDistance(userPos) {
@@ -1000,6 +1014,25 @@ let compassListenerAttached = false;
 let currentAppliedHeading = 0;
 let pendingHeading = null;
 let headingRAFId = null;
+let nativeGestureBlockAttached = false;
+
+// This was the real cause of markers ending up with the wrong orientation
+// after a pinch: Safari fires its own proprietary gesturestart/gesturechange
+// events for a two-finger pinch or twist, and left alone it can apply its
+// own scale/rotate transform to whatever the fingers are on top of — on top
+// of, and untracked by, the rotate() we're already driving from the compass
+// heading. Our counter-rotation only ever accounts for currentAppliedHeading,
+// so once Safari's own gesture transform stacks on top of that, the inner
+// marker elements are counter-rotating against the wrong total and end up
+// visibly tilted. Leaflet already handles pinch-zoom itself, so the
+// browser's native gesture handling isn't needed here at all — block it.
+function blockNativeGestures() {
+  if (nativeGestureBlockAttached) return;
+  nativeGestureBlockAttached = true;
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(evt => {
+    mapViewportEl.addEventListener(evt, e => e.preventDefault());
+  });
+}
 
 function attachCompassListener() {
   if (compassListenerAttached) return;
@@ -1045,18 +1078,34 @@ function applyPendingHeading() {
   renderHeading(currentAppliedHeading);
 }
 
-function renderHeading(heading) {
-  mapEl.style.transform = `translate(-50%, -50%) rotate(${-heading}deg)`;
-  const counter = `rotate(${heading}deg)`;
-  if (navUserMarker && navUserMarker._icon && navUserMarker._icon.firstElementChild) {
-    navUserMarker._icon.firstElementChild.style.transform = counter;
-  }
-  for (const m of adaMarkers) {
-    if (m._icon && m._icon.firstElementChild) {
-      m._icon.firstElementChild.style.transform = counter;
-    }
+// Counter-rotates a single marker's inner element to the current heading.
+// Shared by renderHeading (compass updates) and by marker-creation sites
+// (updateUserDot, showNearbyADAMarkers) so a marker that spawns mid-rotation
+// doesn't sit unrotated until the next compass tick.
+function applyHeadingToMarkerIcon(marker) {
+  if (marker && marker._icon && marker._icon.firstElementChild) {
+    marker._icon.firstElementChild.style.transform = `rotate(${currentAppliedHeading}deg)`;
   }
 }
+
+function renderHeading(heading) {
+  mapEl.style.transform = `translate(-50%, -50%) rotate(${-heading}deg)`;
+  applyHeadingToMarkerIcon(navUserMarker);
+  for (const m of adaMarkers) applyHeadingToMarkerIcon(m);
+}
+
+// Leaflet re-lays-out marker icons on its own zoom/pan handling — including
+// the pinch-zoom gesture on a touchscreen. That's a *different* transform
+// (Leaflet positions the outer icon element; our counter-rotation targets
+// the inner child, see applyHeadingToMarkerIcon) so the two shouldn't
+// normally conflict, but a pinch gesture firing mid-frame, right as a new
+// marker is added or the heading is mid-update, is exactly the kind of
+// timing gap that can leave a marker's counter-rotation stale. Cheap
+// enough to just re-assert it after every Leaflet-driven redraw while
+// heading-up rotation is on.
+map.on('zoomend moveend', () => {
+  if (headingActive) renderHeading(currentAppliedHeading);
+});
 
 // Blows up #map to a square covering the viewport's diagonal (enable) or
 // snaps it back to a plain full-bleed rect (disable). invalidateSize once
@@ -1073,7 +1122,9 @@ function sizeMapForRotation(on) {
     mapEl.style.width = diag + 'px';
     mapEl.style.height = diag + 'px';
     mapEl.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+    mapViewportEl.style.touchAction = 'none';
   } else {
+    mapViewportEl.style.touchAction = '';
     mapEl.classList.remove('is-rotating');
     mapEl.style.left = '';
     mapEl.style.top = '';
@@ -1111,6 +1162,7 @@ function enterNavMode() {
   if (IS_MOBILE) {
     headingActive = true;
     sizeMapForRotation(true);
+    blockNativeGestures();
     requestCompassPermission();
   }
 
