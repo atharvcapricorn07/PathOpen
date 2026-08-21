@@ -41,7 +41,20 @@ let activeInput = null;
 // (or a typed start point) once we know it. Until then, the map sits
 // quietly behind the decorative globe intro (see below).
 const WORLD_VIEW = { center: [20, 0], zoom: 2 };
-const map = L.map('map', { worldCopyJump: true }).setView(WORLD_VIEW.center, WORLD_VIEW.zoom);
+const map = L.map('map', {
+  worldCopyJump: true,
+  // leaflet-rotate (loaded in index.html, right after leaflet.js) adds
+  // real bearing support to Leaflet core: panning, pinch-zoom, and marker
+  // placement are all computed correctly under rotation. This replaces
+  // the old approach of CSS-rotating #map after the fact, which left
+  // Leaflet's own touch handling computing against the wrong coordinate
+  // space — that mismatch was the actual cause of broken pinch/pan,
+  // stutter, and markers not staying upright.
+  rotate: true,
+  bearing: 0,
+  rotateControl: false, // we drive bearing ourselves from the compass, no manual UI needed
+  touchRotate: false    // keep two-finger touch as zoom-only, so it never fights the compass heading
+}).setView(WORLD_VIEW.center, WORLD_VIEW.zoom);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
   subdomains: 'abcd',
   maxZoom: 19
@@ -438,7 +451,7 @@ function requestLocation() {
       const address = await reverseGeocode(...start);
       startInput.value = address;
       if (startMarker) startMarker.setLatLng(start).bindPopup("Start (Your location)").openPopup();
-      else startMarker = L.marker(start).addTo(map).bindPopup("Start (Your location)").openPopup();
+      else startMarker = L.marker(start, { rotateWithView: false }).addTo(map).bindPopup("Start (Your location)").openPopup();
     },
     err => {
       hideBanner();
@@ -576,12 +589,12 @@ function selectSuggestion(name, lat, lon) {
     start = [parseFloat(lat), parseFloat(lon)];
     startInput.value = name;
     if (startMarker) startMarker.setLatLng(start).bindPopup("Start").openPopup();
-    else startMarker = L.marker(start).addTo(map).bindPopup("Start").openPopup();
+    else startMarker = L.marker(start, { rotateWithView: false }).addTo(map).bindPopup("Start").openPopup();
   } else if (activeInput === endInput) {
     dest = [parseFloat(lat), parseFloat(lon)];
     endInput.value = name;
     if (destMarker) destMarker.setLatLng(dest).bindPopup("Destination").openPopup();
-    else destMarker = L.marker(dest).addTo(map).bindPopup("Destination").openPopup();
+    else destMarker = L.marker(dest, { rotateWithView: false }).addTo(map).bindPopup("Destination").openPopup();
   }
   box.innerHTML = '';
   hideGlobeIntro();
@@ -601,7 +614,7 @@ map.on('click', async (e) => {
   const address = await reverseGeocode(lat, lng);
   endInput.value = address;
   if (destMarker) destMarker.setLatLng(dest).bindPopup("Destination").openPopup();
-  else destMarker = L.marker(dest).addTo(map).bindPopup("Destination").openPopup();
+  else destMarker = L.marker(dest, { rotateWithView: false }).addTo(map).bindPopup("Destination").openPopup();
   hideGlobeIntro();
   map.setView(dest, map.getZoom());
   box.innerHTML = '';
@@ -738,7 +751,10 @@ async function showNearbyADAMarkers() {
         iconSize: [100, 40],
         iconAnchor: [50, 20]
       });
-      const marker = L.marker([markerData.lat, markerData.lng], { icon }).addTo(map);
+      const marker = L.marker([markerData.lat, markerData.lng], {
+        icon,
+        rotateWithView: false // keep the label screen-upright as the map rotates under it (leaflet-rotate option)
+      }).addTo(map);
       marker.bindPopup(`
         <img src="${markerData.image_url}" style="width:150px;height:150px;object-fit:cover;border-radius:8px;display:block;" />
         <div style="text-align:center;margin-top:6px;font-weight:bold;">${markerData.label}</div>
@@ -746,9 +762,6 @@ async function showNearbyADAMarkers() {
       marker.a11yLabel = markerData.label;
       marker.a11yIsObstacle = isObstacleLabel(markerData.label);
       adaMarkers.push(marker);
-      // Same reasoning as the user dot: don't leave a freshly-added marker
-      // unrotated until the next compass tick if heading-up is already on.
-      if (headingActive) applyHeadingToMarkerIcon(marker);
     });
   } catch (e) { console.error('Failed to load ADA markers:', e); }
 }
@@ -913,18 +926,11 @@ function updateUserDot(userPos) {
     iconSize: [40, 40],
     iconAnchor: [20, 20]
   });
-  navUserMarker = L.marker(userPos, { icon, zIndexOffset: 1000 }).addTo(map);
-
-  // If rotation is already active by the time this marker is created (it
-  // almost always is, since nav mode turns rotation on first), give it the
-  // current counter-rotation right away instead of waiting on the next
-  // compass event — otherwise the dot renders sideways for a beat, and if
-  // the compass is slow to fire (or the heading barely changes, which the
-  // sub-degree jitter filter in applyPendingHeading skips entirely) it can
-  // stay wrong far longer than "a beat".
-  if (headingActive) {
-    applyHeadingToMarkerIcon(navUserMarker);
-  }
+  navUserMarker = L.marker(userPos, {
+    icon,
+    zIndexOffset: 1000,
+    rotateWithView: false // keep the dot screen-upright as the map rotates under it (leaflet-rotate option)
+  }).addTo(map);
 }
 
 function nearestRouteDistance(userPos) {
@@ -952,7 +958,7 @@ function onNavPosition(pos) {
   updateUserDot(userPos);
 
   const mapCenter = map.getCenter();
-  if (haversine(userPos, [mapCenter.lat, mapCenter.lng]) > 4) {
+  if (followMode && haversine(userPos, [mapCenter.lat, mapCenter.lng]) > 4) {
     map.setView(userPos, Math.max(map.getZoom(), 17), { animate: true, duration: 0.5 });
   }
 
@@ -991,48 +997,30 @@ function onNavPositionError() {
 
 // =====================================================================
 // --- Heading-up map rotation ---
-// Rotates the map itself (not just the user marker) to match the way the
-// phone is pointed, like a normal turn-by-turn nav app. Only ever active
-// on mobile, during a walking nav session — compass data isn't available
-// (or meaningful) on desktop, and rotating a stationary map with the mouse
-// hovering over it would just be disorienting.
+// Rotates the map to match the way the phone is pointed, like a normal
+// turn-by-turn nav app. Only ever active on mobile, during a walking nav
+// session — compass data isn't available (or meaningful) on desktop, and
+// rotating a stationary map with the mouse hovering over it would just be
+// disorienting.
 //
-// How it works: #mapViewport is a fixed, never-rotating window. #map sits
-// inside it; while rotating, #map is resized to a square as large as the
-// viewport's diagonal (see sizeMapForRotation) so a CSS rotate() on it
-// never reveals blank space past the edge of loaded tiles. Only #map's
-// *size* changes tile load — rotation itself is a free GPU transform and
-// triggers no extra network requests, and the square is only in effect
-// while nav mode is on, so ordinary browsing keeps the cheap 1x viewport
-// footprint. Individual markers (user dot, ADA labels) get an equal and
-// opposite rotation on their own inner element so they stay upright.
+// This uses the leaflet-rotate plugin (loaded in index.html, after
+// leaflet.js and before this file) instead of the CSS rotate() this used
+// to hand-roll on #map. That hack rotated the map visually but Leaflet's
+// own drag/pinch-zoom math had no idea it was rotated — every touch
+// gesture was being computed against the wrong coordinate space, which is
+// what was actually behind the broken pinch/pan, the stutter, and markers
+// not staying upright. leaflet-rotate patches Leaflet core so panning,
+// pinch-zoom, and marker placement are all computed correctly under
+// rotation, and markers stay screen-upright by default (rotateWithView:
+// false below, matching what we want for pins and labels) with no manual
+// counter-rotation code needed on our end at all.
 // =====================================================================
 
-const mapEl = document.getElementById('map');
 let headingActive = false;
 let compassListenerAttached = false;
 let currentAppliedHeading = 0;
 let pendingHeading = null;
 let headingRAFId = null;
-let nativeGestureBlockAttached = false;
-
-// This was the real cause of markers ending up with the wrong orientation
-// after a pinch: Safari fires its own proprietary gesturestart/gesturechange
-// events for a two-finger pinch or twist, and left alone it can apply its
-// own scale/rotate transform to whatever the fingers are on top of — on top
-// of, and untracked by, the rotate() we're already driving from the compass
-// heading. Our counter-rotation only ever accounts for currentAppliedHeading,
-// so once Safari's own gesture transform stacks on top of that, the inner
-// marker elements are counter-rotating against the wrong total and end up
-// visibly tilted. Leaflet already handles pinch-zoom itself, so the
-// browser's native gesture handling isn't needed here at all — block it.
-function blockNativeGestures() {
-  if (nativeGestureBlockAttached) return;
-  nativeGestureBlockAttached = true;
-  ['gesturestart', 'gesturechange', 'gestureend'].forEach(evt => {
-    mapViewportEl.addEventListener(evt, e => e.preventDefault());
-  });
-}
 
 function attachCompassListener() {
   if (compassListenerAttached) return;
@@ -1075,77 +1063,82 @@ function applyPendingHeading() {
   diff = ((diff + 180) % 360 + 360) % 360 - 180; // shortest signed angular distance
   if (Math.abs(diff) < 1) return; // skip sub-degree jitter — cheaper and steadier
   currentAppliedHeading = (currentAppliedHeading + diff * 0.35 + 360) % 360;
-  renderHeading(currentAppliedHeading);
+  // map.setBearing comes from leaflet-rotate — it rotates the tile layer,
+  // routing line, and every marker's *position* correctly. Markers keep
+  // their own upright orientation automatically because they're created
+  // with rotateWithView: false (see updateUserDot / showNearbyADAMarkers).
+  map.setBearing(currentAppliedHeading);
 }
 
-// Counter-rotates a single marker's inner element to the current heading.
-// Shared by renderHeading (compass updates) and by marker-creation sites
-// (updateUserDot, showNearbyADAMarkers) so a marker that spawns mid-rotation
-// doesn't sit unrotated until the next compass tick.
-function applyHeadingToMarkerIcon(marker) {
-  if (marker && marker._icon && marker._icon.firstElementChild) {
-    marker._icon.firstElementChild.style.transform = `rotate(${currentAppliedHeading}deg)`;
+// =====================================================================
+// --- Follow mode (auto-recenter) ---
+// Real turn-by-turn apps keep the camera locked to the user's position
+// only while "following" — the moment the user drags the map to look
+// around, following pauses so their pan actually sticks, and only resumes
+// (snapping back to the live position) after a short idle period, or
+// immediately if they tap the recenter button. The previous version
+// called map.setView on every single GPS tick regardless of what the user
+// was doing with the map, which is why panning away felt like it
+// "instantly" snapped back — it was never actually possible to pan away.
+// =====================================================================
+
+let followMode = true;
+let followResumeTimer = null;
+const FOLLOW_RESUME_DELAY_MS = 6000;
+
+const recenterBtn = document.createElement('button');
+recenterBtn.id = 'recenterBtn';
+recenterBtn.setAttribute('aria-label', 'Recenter on my location');
+recenterBtn.innerHTML = '<svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="3" fill="currentColor"/><path d="M11 2v3.2M11 16.8V20M2 11h3.2M16.8 11H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+Object.assign(recenterBtn.style, {
+  position: 'absolute',
+  right: '14px',
+  bottom: '160px',
+  width: '46px',
+  height: '46px',
+  borderRadius: '50%',
+  border: 'none',
+  background: '#ffffff',
+  color: '#2454E8',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+  display: 'none',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: '1000',
+  cursor: 'pointer'
+});
+mapViewportEl.appendChild(recenterBtn);
+
+function pauseFollowMode() {
+  if (!navActive) return;
+  followMode = false;
+  clearTimeout(followResumeTimer);
+  recenterBtn.style.display = 'flex';
+}
+
+function resumeFollowModeSoon() {
+  if (!navActive || followMode) return;
+  clearTimeout(followResumeTimer);
+  followResumeTimer = setTimeout(() => {
+    followMode = true;
+    recenterBtn.style.display = 'none';
+  }, FOLLOW_RESUME_DELAY_MS);
+}
+
+recenterBtn.addEventListener('click', () => {
+  followMode = true;
+  clearTimeout(followResumeTimer);
+  recenterBtn.style.display = 'none';
+  if (lastNavCenter) {
+    map.setView(lastNavCenter, Math.max(map.getZoom(), 17), { animate: true, duration: 0.5 });
   }
-}
-
-function renderHeading(heading) {
-  mapEl.style.transform = `translate(-50%, -50%) rotate(${-heading}deg)`;
-  applyHeadingToMarkerIcon(navUserMarker);
-  for (const m of adaMarkers) applyHeadingToMarkerIcon(m);
-}
-
-// Leaflet re-lays-out marker icons on its own zoom/pan handling — including
-// the pinch-zoom gesture on a touchscreen. That's a *different* transform
-// (Leaflet positions the outer icon element; our counter-rotation targets
-// the inner child, see applyHeadingToMarkerIcon) so the two shouldn't
-// normally conflict, but a pinch gesture firing mid-frame, right as a new
-// marker is added or the heading is mid-update, is exactly the kind of
-// timing gap that can leave a marker's counter-rotation stale. Cheap
-// enough to just re-assert it after every Leaflet-driven redraw while
-// heading-up rotation is on.
-map.on('zoomend moveend', () => {
-  if (headingActive) renderHeading(currentAppliedHeading);
 });
 
-// Blows up #map to a square covering the viewport's diagonal (enable) or
-// snaps it back to a plain full-bleed rect (disable). invalidateSize once
-// per call — not per frame — keeps this cheap.
-function sizeMapForRotation(on) {
-  if (on) {
-    const w = mapViewportEl.clientWidth, h = mapViewportEl.clientHeight;
-    const diag = Math.ceil(Math.sqrt(w * w + h * h)) + 40;
-    mapEl.classList.add('is-rotating');
-    mapEl.style.left = '50%';
-    mapEl.style.top = '50%';
-    mapEl.style.right = 'auto';
-    mapEl.style.bottom = 'auto';
-    mapEl.style.width = diag + 'px';
-    mapEl.style.height = diag + 'px';
-    mapEl.style.transform = 'translate(-50%, -50%) rotate(0deg)';
-    mapViewportEl.style.touchAction = 'none';
-  } else {
-    mapViewportEl.style.touchAction = '';
-    mapEl.classList.remove('is-rotating');
-    mapEl.style.left = '';
-    mapEl.style.top = '';
-    mapEl.style.right = '';
-    mapEl.style.bottom = '';
-    mapEl.style.width = '';
-    mapEl.style.height = '';
-    mapEl.style.transform = '';
-    if (navUserMarker && navUserMarker._icon && navUserMarker._icon.firstElementChild) {
-      navUserMarker._icon.firstElementChild.style.transform = '';
-    }
-    for (const m of adaMarkers) {
-      if (m._icon && m._icon.firstElementChild) m._icon.firstElementChild.style.transform = '';
-    }
-  }
-  map.invalidateSize();
-}
-
-window.addEventListener('resize', () => {
-  if (headingActive) sizeMapForRotation(true);
-});
+// 'dragstart' only fires for an actual user-initiated pan (mouse or touch
+// drag) — never for our own programmatic map.setView calls in
+// onNavPosition, so this can't misfire from the app recentering itself.
+map.on('dragstart', pauseFollowMode);
+map.on('dragend', resumeFollowModeSoon);
 
 function enterNavMode() {
   if (!currentRoute) return showToast('Set a route first.');
@@ -1155,14 +1148,14 @@ function enterNavMode() {
   currentStepIndex = 0;
   offRouteSince = null;
   announcedMarkers = new Set();
+  followMode = true;
+  recenterBtn.style.display = 'none';
   document.body.classList.add('nav-active');
   document.getElementById('navCallout').classList.remove('show');
   updateNavInstructionDisplay(start);
 
   if (IS_MOBILE) {
     headingActive = true;
-    sizeMapForRotation(true);
-    blockNativeGestures();
     requestCompassPermission();
   }
 
@@ -1184,8 +1177,11 @@ function exitNavMode() {
     headingActive = false;
     pendingHeading = null;
     currentAppliedHeading = 0;
-    sizeMapForRotation(false);
+    map.setBearing(0);
   }
+  clearTimeout(followResumeTimer);
+  followMode = true;
+  recenterBtn.style.display = 'none';
   if (navUserMarker) {
     map.removeLayer(navUserMarker);
     navUserMarker = null;

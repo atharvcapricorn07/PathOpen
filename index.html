@@ -165,6 +165,10 @@
   <div class="copyright">&copy; 2026 PathOpen. All rights reserved. &nbsp;·&nbsp; <a href="privacy.html">Privacy</a> &nbsp;·&nbsp; <a href="terms.html">Terms</a></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Adds real map-rotation support to Leaflet core (bearing, correct
+       pinch/pan math under rotation, upright markers via rotateWithView).
+       Must load after leaflet.js and before script.js. -->
+  <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
   <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
   <script src="js/script.js"></script>
 </body>
