@@ -53,7 +53,7 @@ const map = L.map('map', {
   rotate: true,
   bearing: 0,
   rotateControl: false, // we drive bearing ourselves from the compass, no manual UI needed
-  touchRotate: false    // keep two-finger touch as zoom-only, so it never fights the compass heading
+  touchRotate: true     // let the user manually twist the map with two fingers too
 }).setView(WORLD_VIEW.center, WORLD_VIEW.zoom);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
   subdomains: 'abcd',
@@ -1063,12 +1063,59 @@ function applyPendingHeading() {
   diff = ((diff + 180) % 360 + 360) % 360 - 180; // shortest signed angular distance
   if (Math.abs(diff) < 1) return; // skip sub-degree jitter — cheaper and steadier
   currentAppliedHeading = (currentAppliedHeading + diff * 0.35 + 360) % 360;
+  if (manualRotationActive) return; // user has fingers on the map right now — don't fight their gesture
   // map.setBearing comes from leaflet-rotate — it rotates the tile layer,
   // routing line, and every marker's *position* correctly. Markers keep
   // their own upright orientation automatically because they're created
   // with rotateWithView: false (see updateUserDot / showNearbyADAMarkers).
   map.setBearing(currentAppliedHeading);
 }
+
+// =====================================================================
+// --- Manual two-finger rotation vs. compass-driven rotation ---
+// touchRotate (enabled above) lets the user twist the map by hand at any
+// time, including outside nav mode. During nav mode the compass is also
+// driving bearing on its own — without this, the two would fight: the
+// user twists the map, then the next compass tick yanks it right back.
+// So while any two-finger touch is actually on the screen, the compass
+// backs off; once the fingers lift, give it a moment (in case they're
+// mid-gesture between touches) and then hand control back to the compass,
+// snapping to the real heading rather than leaving the map wherever the
+// manual twist left it.
+// =====================================================================
+
+let manualRotationActive = false;
+let manualRotationResumeTimer = null;
+const MANUAL_ROTATION_RESUME_DELAY_MS = 4000;
+
+function pauseManualRotation() {
+  if (!headingActive) return;
+  manualRotationActive = true;
+  clearTimeout(manualRotationResumeTimer);
+}
+
+function resumeManualRotationSoon() {
+  if (!headingActive || !manualRotationActive) return;
+  clearTimeout(manualRotationResumeTimer);
+  manualRotationResumeTimer = setTimeout(() => {
+    manualRotationActive = false;
+    map.setBearing(currentAppliedHeading);
+  }, MANUAL_ROTATION_RESUME_DELAY_MS);
+}
+
+const mapContainerEl = map.getContainer();
+mapContainerEl.addEventListener('touchstart', (e) => {
+  if (e.touches.length >= 2) {
+    pauseManualRotation();
+    pauseFollowMode();
+  }
+}, { passive: true });
+mapContainerEl.addEventListener('touchend', (e) => {
+  if (e.touches.length === 0) {
+    resumeManualRotationSoon();
+    resumeFollowModeSoon();
+  }
+}, { passive: true });
 
 // =====================================================================
 // --- Follow mode (auto-recenter) ---
