@@ -1122,7 +1122,12 @@ function redrawVectorLayers(layer) {
   // LRM's route line is actually a LayerGroup of polyline segments, not
   // a single Path — recurse into any group before trying to redraw it.
   if (layer.eachLayer) { layer.eachLayer(redrawVectorLayers); return; }
-  if (typeof layer.redraw === 'function') layer.redraw();
+  // IMPORTANT: check for L.Path specifically, not just "has a redraw()
+  // method" — L.TileLayer/L.GridLayer also expose redraw(), but theirs
+  // clears every tile and re-requests them from the network, which is
+  // exactly the grey-out-and-reload stutter. Only vector layers (Path:
+  // Polyline, Polygon, Circle, CircleMarker) should get reprojected here.
+  if (layer instanceof L.Path && typeof layer.redraw === 'function') layer.redraw();
 }
 function scheduleLiveRedraw() {
   if (liveRedrawRAF != null) return;
