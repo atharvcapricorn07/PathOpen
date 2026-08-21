@@ -222,7 +222,7 @@ function hideGlobeIntro() { /* replaced below once the globe boots */ }
 [[99.9,78.9],[97.8,78.8],[95.0,79.0],[93.3,79.4],[92.5,80.1],[91.2,80.3],[93.8,81.0],[95.9,81.3],[97.9,80.7],[100.2,79.8],[99.9,78.9]],
 [[-87.0,79.7],[-85.8,79.3],[-87.2,79.0],[-89.0,78.3],[-90.8,78.2],[-92.9,78.3],[-94.0,78.8],[-93.9,79.1],[-93.1,79.4],[-95.0,79.4],[-96.1,79.7],[-96.7,80.2],[-96.0,80.6],[-95.3,80.9],[-94.3,81.0],[-94.7,81.2],[-92.4,81.3],[-91.1,80.7],[-89.5,80.5],[-87.8,80.3],[-87.0,79.7]],
 [[-68.5,83.1],[-65.8,83.0],[-63.7,82.9],[-61.9,82.6],[-61.9,82.4],[-64.3,81.9],[-66.8,81.7],[-67.7,81.5],[-65.5,81.5],[-67.8,80.9],[-69.5,80.6],[-71.2,79.8],[-73.2,79.6],[-73.9,79.4],[-76.9,79.3],[-75.5,79.2],[-76.2,79.0],[-75.4,78.5],[-76.3,78.2],[-77.9,77.9],[-78.4,77.5],[-79.8,77.2],[-79.6,77.0],[-77.9,77.0],[-77.9,76.8],[-80.6,76.2],[-83.2,76.5],[-86.1,76.3],[-87.6,76.4],[-89.5,76.5],[-89.6,77.0],[-87.8,77.2],[-88.3,77.9],[-87.7,78.0],[-85.0,77.5],[-86.3,78.2],[-88.0,78.4],[-87.2,78.8],[-85.4,79.0],[-85.1,79.3],[-86.5,79.7],[-86.9,80.3],[-84.2,80.2],[-83.4,80.1],[-81.8,80.5],[-84.1,80.6],[-87.6,80.5],[-89.4,80.9],[-90.2,81.3],[-91.4,81.6],[-91.6,81.9],[-90.1,82.1],[-88.9,82.1],[-87.0,82.3],[-85.5,82.7],[-84.3,82.6],[-83.2,82.3],[-82.4,82.9],[-81.1,83.0],[-79.3,83.1],[-76.2,83.2],[-75.7,83.1],[-72.8,83.2],[-70.7,83.2],[-68.5,83.1]],
-[[-27.1,83.5],[-22.7,82.3],[-31.9,82.2],[-27.9,82.1],[-22.9,82.1],[-23.2,81.2],[-15.8,81.9],[-12.2,81.3],[-16.9,80.3],[-17.7,80.1],[-19.7,78.8],[-18.5,77.0],[-21.7,76.6],[-19.6,75.2],[-19.4,74.3],[-20.4,73.8],[-22.2,73.3],[-22.3,72.6],[-24.3,72.6],[-23.4,72.1],[-21.8,70.7],[-24.3,70.9],[-25.2,70.8],[-23.7,70.2],[-25.0,69.3],[-30.7,68.1],[-32.8,67.7],[-36.4,66.0],[-38.4,65.7],[-40.7,64.8],[-41.2,63.5],[-42.4,61.9],[-43.4,60.1],[-46.3,60.9],[-49.2,61.4],[-51.6,63.6],[-52.3,65.2],[-53.3,66.8],[-53.0,68.4],[-51.1,69.1],[-52.0,69.6],[-53.5,69.3],[-54.8,70.3],[-53.4,70.8],[-53.1,71.2],[-55,71.4],[-54.7,72.6],[-56.1,73.6],[-58.6,75.1],[-61.3,76.1],[-66.1,76.1],[-69.7,76.4],[-68.8,77.3],[-71.0,77.6],[-73.2,78.4],[-65.7,79.4],[-68.0,80.1],[-63.7,81.2],[-62.7,81.8],[-57.2,82.2],[-53.0,81.9],[-48.0,82.1],[-44.5,81.7],[-46.8,82.6],[-39.9,83.2],[-35.1,83.6],[-27.1,83.5]]];
+[[-27.1,83.5],[-22.7,82.3],[-31.9,82.2],[-27.9,82.1],[-22.9,82.1],[-23.2,81.2],[-15.8,81.9],[-12.2,81.3],[-16.9,80.3],[-17.7,80.1],[-19.7,78.8],[-18.5,77.0],[-19.6,75.2],[-20.4,73.8],[-22.2,73.3],[-22.3,72.6],[-24.3,72.6],[-23.4,72.1],[-21.8,70.7],[-24.3,70.9],[-25.2,70.8],[-23.7,70.2],[-25.0,69.3],[-30.7,68.1],[-32.8,67.7],[-36.4,66.0],[-38.4,65.7],[-40.7,64.8],[-41.2,63.5],[-42.4,61.9],[-43.4,60.1],[-46.3,60.9],[-49.2,61.4],[-51.6,63.6],[-52.3,65.2],[-53.3,66.8],[-53.0,68.4],[-51.1,69.1],[-52.0,69.6],[-53.5,69.3],[-54.8,70.3],[-53.4,70.8],[-53.1,71.2],[-55,71.4],[-54.7,72.6],[-56.1,73.6],[-58.6,75.1],[-61.3,76.1],[-66.1,76.1],[-69.7,76.4],[-68.8,77.3],[-71.0,77.6],[-73.2,78.4],[-65.7,79.4],[-68.0,80.1],[-63.7,81.2],[-62.7,81.8],[-57.2,82.2],[-53.0,81.9],[-48.0,82.1],[-44.5,81.7],[-46.8,82.6],[-39.9,83.2],[-35.1,83.6],[-27.1,83.5]]];
 
   // Pre-convert every ring to unit-sphere xyz once (cheap trig, done once)
   const solidRings = LAND_RINGS.map(ring => ring.map(([lon, lat]) => {
@@ -1103,12 +1103,47 @@ function resumeManualRotationSoon() {
   }, MANUAL_ROTATION_RESUME_DELAY_MS);
 }
 
+// =====================================================================
+// --- Live route redraw during two-finger rotate/pinch ---
+// Known leaflet-rotate limitation (see Raruto/leaflet-rotate#43): marker
+// positions are patched to stay correct live during an interactive
+// rotate gesture, but SVG-rendered vector layers (our route polyline)
+// only reproject once the gesture ends and 'moveend'/'viewreset' fires,
+// so the line visibly lags behind the tiles until fingers lift, then
+// snaps into place. The underlying transform state is already updating
+// live the whole time (that's *why* it snaps to the correct spot on
+// release), so we just need to manually re-trigger reprojection each
+// frame while the gesture is active. redraw() is cheap — it only reruns
+// project/update, no rebuild.
+// =====================================================================
+
+let liveRedrawRAF = null;
+function redrawVectorLayers(layer) {
+  // LRM's route line is actually a LayerGroup of polyline segments, not
+  // a single Path — recurse into any group before trying to redraw it.
+  if (layer.eachLayer) { layer.eachLayer(redrawVectorLayers); return; }
+  if (typeof layer.redraw === 'function') layer.redraw();
+}
+function scheduleLiveRedraw() {
+  if (liveRedrawRAF != null) return;
+  liveRedrawRAF = requestAnimationFrame(() => {
+    liveRedrawRAF = null;
+    map.eachLayer(redrawVectorLayers);
+  });
+}
+
 const mapContainerEl = map.getContainer();
 mapContainerEl.addEventListener('touchstart', (e) => {
   if (e.touches.length >= 2) {
     pauseManualRotation();
     pauseFollowMode();
   }
+}, { passive: true });
+mapContainerEl.addEventListener('touchmove', (e) => {
+  // Keeps the route line (and any other vector layer) tracking the
+  // rotation live instead of freezing until the gesture ends — see the
+  // comment block above.
+  if (e.touches.length >= 2) scheduleLiveRedraw();
 }, { passive: true });
 mapContainerEl.addEventListener('touchend', (e) => {
   if (e.touches.length === 0) {
