@@ -353,6 +353,86 @@ function isObstacleLabel(label) {
   return label === "a blocked path";
 }
 
+// =====================================================================
+// --- All markers (global, shown by default, toggleable) ---
+// Loaded once on startup and rendered in their own layer group, kept
+// entirely separate from `adaMarkers` (the per-route, 0.5mi-radius set
+// drawn by showNearbyADAMarkers()). Toggling this layer never touches
+// the route-specific markers, and vice versa.
+//
+// Requires a backend endpoint that returns every marker with no
+// lat/lng/radius filter — e.g. GET /markers/all — since the existing
+// /markers endpoint requires a center point and radius.
+// =====================================================================
+
+const allMarkersLayer = L.layerGroup();
+let allMarkersVisible = true;
+
+function buildMarkerDivIcon(markerData) {
+  return L.divIcon({
+    className: 'custom-marker-label',
+    html: `<div class="marker-label${isObstacleLabel(markerData.label) ? ' is-obstacle' : ''}">${markerData.label}</div>`,
+    iconSize: [100, 40],
+    iconAnchor: [50, 20]
+  });
+}
+
+async function loadAllMarkers() {
+  try {
+    const res = await fetch('https://atharvcapricorn07-pathopen.hf.space/markers/all');
+    const markers = await res.json();
+    allMarkersLayer.clearLayers();
+    markers.forEach(markerData => {
+      const marker = L.marker([markerData.lat, markerData.lng], {
+        icon: buildMarkerDivIcon(markerData),
+        rotateWithView: false // keep the label screen-upright as the map rotates under it
+      });
+      marker.bindPopup(`
+        <img src="${markerData.image_url}" style="width:150px;height:150px;object-fit:cover;border-radius:8px;display:block;" />
+        <div style="text-align:center;margin-top:6px;font-weight:bold;">${markerData.label}</div>
+      `, { maxWidth: 170 });
+      allMarkersLayer.addLayer(marker);
+    });
+    if (allMarkersVisible) allMarkersLayer.addTo(map);
+  } catch (e) {
+    console.error('Failed to load all markers:', e);
+  }
+}
+loadAllMarkers();
+
+// Toggle button, top right of the map viewport
+const markerToggleBtn = document.createElement('button');
+markerToggleBtn.id = 'markerToggleBtn';
+markerToggleBtn.textContent = 'Hide Markers';
+markerToggleBtn.setAttribute('aria-label', 'Toggle accessibility markers');
+Object.assign(markerToggleBtn.style, {
+  position: 'absolute',
+  top: '14px',
+  right: '14px',
+  zIndex: '1000',
+  background: '#ffffff',
+  border: 'none',
+  borderRadius: '20px',
+  padding: '8px 14px',
+  fontSize: '13px',
+  fontWeight: '600',
+  color: '#2454E8',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+  cursor: 'pointer'
+});
+mapViewportEl.appendChild(markerToggleBtn);
+
+markerToggleBtn.addEventListener('click', () => {
+  allMarkersVisible = !allMarkersVisible;
+  if (allMarkersVisible) {
+    map.addLayer(allMarkersLayer);
+    markerToggleBtn.textContent = 'Hide Markers';
+  } else {
+    map.removeLayer(allMarkersLayer);
+    markerToggleBtn.textContent = 'Show Markers';
+  }
+});
+
 const GEOAPIFY_KEY = '6445d99b338a472c939c735ab3798aba';
 
 async function reverseGeocode(lat, lon) {
@@ -745,12 +825,7 @@ async function showNearbyADAMarkers() {
     }
 
     nearby.forEach(markerData => {
-      const icon = L.divIcon({
-        className: 'custom-marker-label',
-        html: `<div class="marker-label${isObstacleLabel(markerData.label) ? ' is-obstacle' : ''}">${markerData.label}</div>`,
-        iconSize: [100, 40],
-        iconAnchor: [50, 20]
-      });
+      const icon = buildMarkerDivIcon(markerData);
       const marker = L.marker([markerData.lat, markerData.lng], {
         icon,
         rotateWithView: false // keep the label screen-upright as the map rotates under it (leaflet-rotate option)

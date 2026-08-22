@@ -257,6 +257,41 @@ def get_markers():
         print(f"ERROR in get_markers: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/markers/all", methods=["GET"])
+def get_all_markers():
+    """Every non-flagged marker, no location filter — used to paint the full
+    set on the map at load time (see the "show all markers by default, with
+    a toggle" feature). Same row shape as /markers so the frontend can reuse
+    one rendering path for both.
+
+    Paginated in fixed-size pages via Supabase's .range() rather than one
+    .select() call, since the client library's default page size is capped
+    (1000 rows) and would silently truncate results once the marker count
+    grows past that — same failure mode load_all_markers() on the frontend
+    would have no way to detect."""
+    try:
+        PAGE_SIZE = 1000
+        all_rows = []
+        start = 0
+        while True:
+            page = (
+                supabase.table("ada_markers")
+                .select("id, lat, lng, label, image_url, flagged")
+                .range(start, start + PAGE_SIZE - 1)
+                .execute()
+            )
+            rows = page.data or []
+            all_rows.extend(rows)
+            if len(rows) < PAGE_SIZE:
+                break
+            start += PAGE_SIZE
+
+        visible = [m for m in all_rows if not m.get("flagged")]  # hide anything pending review
+        return jsonify(visible)
+    except Exception as e:
+        print(f"ERROR in get_all_markers: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/save-marker", methods=["POST"])
 def save_marker():
     try:
