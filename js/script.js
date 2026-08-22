@@ -380,6 +380,7 @@ function buildMarkerDivIcon(markerData) {
 async function loadAllMarkers() {
   try {
     const res = await fetch('https://atharvcapricorn07-pathopen.hf.space/markers/all');
+    if (!res.ok) throw new Error(`/markers/all returned ${res.status}`);
     const markers = await res.json();
     allMarkersLayer.clearLayers();
     markers.forEach(markerData => {
@@ -395,41 +396,43 @@ async function loadAllMarkers() {
     });
     if (allMarkersVisible) allMarkersLayer.addTo(map);
   } catch (e) {
+    // Surfaced as a toast (not just console.error) since most users — and
+    // Claude, debugging this on their behalf — won't have dev tools open
+    // on a phone. Makes a missing/undeployed /markers/all endpoint obvious
+    // instead of silently showing an empty map.
     console.error('Failed to load all markers:', e);
+    showToast('Could not load markers. Check that /markers/all is deployed.', 4000);
   }
 }
 loadAllMarkers();
 
-// Toggle button, top right of the map viewport
+// Toggle button — lives in the existing action rail (Report Feature / Report
+// Bug / Help), not absolutely positioned on its own. That rail already sits
+// correctly below the navbar on every screen size, so reusing it avoids
+// hardcoding a top offset that overlaps the search bars.
 const markerToggleBtn = document.createElement('button');
 markerToggleBtn.id = 'markerToggleBtn';
-markerToggleBtn.textContent = 'Hide Markers';
+markerToggleBtn.className = 'rail-btn';
 markerToggleBtn.setAttribute('aria-label', 'Toggle accessibility markers');
-Object.assign(markerToggleBtn.style, {
-  position: 'absolute',
-  top: '14px',
-  right: '14px',
-  zIndex: '1000',
-  background: '#ffffff',
-  border: 'none',
-  borderRadius: '20px',
-  padding: '8px 14px',
-  fontSize: '13px',
-  fontWeight: '600',
-  color: '#2454E8',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-  cursor: 'pointer'
-});
-mapViewportEl.appendChild(markerToggleBtn);
+markerToggleBtn.innerHTML = `
+  <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M1 11s3.5-6.5 10-6.5S21 11 21 11s-3.5 6.5-10 6.5S1 11 1 11z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+    <circle cx="11" cy="11" r="2.6" stroke="currentColor" stroke-width="1.6"/>
+  </svg>
+  <span class="rail-btn-label">Hide Markers</span>
+`;
+const actionRailEl = document.querySelector('.action-rail');
+if (actionRailEl) actionRailEl.insertBefore(markerToggleBtn, actionRailEl.firstChild);
 
 markerToggleBtn.addEventListener('click', () => {
   allMarkersVisible = !allMarkersVisible;
+  const label = markerToggleBtn.querySelector('.rail-btn-label');
   if (allMarkersVisible) {
     map.addLayer(allMarkersLayer);
-    markerToggleBtn.textContent = 'Hide Markers';
+    if (label) label.textContent = 'Hide Markers';
   } else {
     map.removeLayer(allMarkersLayer);
-    markerToggleBtn.textContent = 'Show Markers';
+    if (label) label.textContent = 'Show Markers';
   }
 });
 
