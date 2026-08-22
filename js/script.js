@@ -353,6 +353,27 @@ function isObstacleLabel(label) {
   return label === "a blocked path";
 }
 
+// Strips the leading article ("a"/"an") and capitalizes, so popups and nav
+// callouts read as "Ramp" / "Staircase" instead of "a ramp" / "a staircase" —
+// the raw label text was built for internal matching against VALID_LABELS,
+// not for display.
+function formatLabel(label) {
+  const cleaned = label.replace(/^(a|an)\s+/i, '');
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
+// Category color for the marker dot. Staircases get their own color since
+// they're a caution/orientation feature rather than an access aid; every
+// other access feature (ramp, handrail, curb cut, elevator, wheelchair)
+// shares one color. Obstacles keep the existing coral treatment. Kept to
+// three colors total on purpose — more would turn the map into a legend
+// nobody's going to read.
+function getMarkerColor(label) {
+  if (isObstacleLabel(label)) return '#D85A30';
+  if (label === 'a staircase') return '#185FA5';
+  return '#0F6E56';
+}
+
 // =====================================================================
 // --- All markers (global, shown by default, toggleable) ---
 // Loaded once on startup and rendered in their own layer group, kept
@@ -368,12 +389,17 @@ function isObstacleLabel(label) {
 const allMarkersLayer = L.layerGroup();
 let allMarkersVisible = true;
 
+// A small colored dot instead of a permanently-on-screen text pill — the
+// map now only shows category color at a glance, and the actual label
+// ("Ramp", "Staircase", ...) shows in the popup when the marker is tapped,
+// which is where the photo already lives anyway.
 function buildMarkerDivIcon(markerData) {
+  const color = getMarkerColor(markerData.label);
   return L.divIcon({
-    className: 'custom-marker-label',
-    html: `<div class="marker-label${isObstacleLabel(markerData.label) ? ' is-obstacle' : ''}">${markerData.label}</div>`,
-    iconSize: [100, 40],
-    iconAnchor: [50, 20]
+    className: 'custom-marker-dot',
+    html: `<div style="width:16px;height:16px;border-radius:50%;background:${color};border:2.5px solid #ffffff;box-shadow:0 1px 4px rgba(16,24,39,0.35);"></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
   });
 }
 
@@ -389,8 +415,8 @@ async function loadAllMarkers() {
         rotateWithView: false // keep the label screen-upright as the map rotates under it
       });
       marker.bindPopup(`
-        <img src="${markerData.image_url}" style="width:150px;height:150px;object-fit:cover;border-radius:8px;display:block;" />
-        <div style="text-align:center;margin-top:6px;font-weight:bold;">${markerData.label}</div>
+        <div style="text-align:center;margin-bottom:6px;font-weight:700;font-size:14px;">${formatLabel(markerData.label)}</div>
+        <img src="${markerData.image_url}" style="width:150px;height:150px;object-fit:cover;border-radius:8px;display:block;margin:0 auto;" />
       `, { maxWidth: 170 });
       allMarkersLayer.addLayer(marker);
     });
@@ -834,10 +860,10 @@ async function showNearbyADAMarkers() {
         rotateWithView: false // keep the label screen-upright as the map rotates under it (leaflet-rotate option)
       }).addTo(map);
       marker.bindPopup(`
-        <img src="${markerData.image_url}" style="width:150px;height:150px;object-fit:cover;border-radius:8px;display:block;" />
-        <div style="text-align:center;margin-top:6px;font-weight:bold;">${markerData.label}</div>
+        <div style="text-align:center;margin-bottom:6px;font-weight:700;font-size:14px;">${formatLabel(markerData.label)}</div>
+        <img src="${markerData.image_url}" style="width:150px;height:150px;object-fit:cover;border-radius:8px;display:block;margin:0 auto;" />
       `, { maxWidth: 170 });
-      marker.a11yLabel = markerData.label;
+      marker.a11yLabel = formatLabel(markerData.label);
       marker.a11yIsObstacle = isObstacleLabel(markerData.label);
       adaMarkers.push(marker);
     });
@@ -968,7 +994,8 @@ function showNavCallout(marker, distance) {
   iconEl.innerHTML = obstacle
     ? '<svg viewBox="0 0 22 22" fill="none"><path d="M11 3l9 16H2l9-16z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M11 9v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="11" cy="15.6" r="0.9" fill="currentColor"/></svg>'
     : '<svg viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8.5" stroke="currentColor" stroke-width="1.7"/><path d="M7.5 11.2l2.3 2.3 4.7-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  textEl.textContent = `${marker.a11yLabel} ahead in ${formatDistance(distance)}`;
+  const calloutLabel = marker.a11yLabel.charAt(0).toLowerCase() + marker.a11yLabel.slice(1);
+  textEl.textContent = `${calloutLabel} ahead in ${formatDistance(distance)}`;
 
   el.classList.add('show');
   clearTimeout(el._hideTimer);
