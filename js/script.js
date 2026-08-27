@@ -55,9 +55,10 @@ const map = L.map('map', {
   rotateControl: false, // we drive bearing ourselves from the compass, no manual UI needed
   touchRotate: true     // let the user manually twist the map with two fingers too
 }).setView(WORLD_VIEW.center, WORLD_VIEW.zoom);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-  subdomains: 'abcd',
-  maxZoom: 19
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  subdomains: 'abc',
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
 // Leaflet's control container (attribution, etc.) lives inside #map by
