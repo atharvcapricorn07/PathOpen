@@ -3,7 +3,13 @@
 # Each call only processes up to 25 markers, so this loops until the backlog is clear.
 
 BASE="https://atharvcapricorn07-pathopen.hf.space"
-ADMIN_KEY="pathable_admin_x7f2k9d1"
+ADMIN_KEY="${PATHOPEN_ADMIN_KEY:-}"
+
+if [ -z "$ADMIN_KEY" ]; then
+  echo "error: PATHOPEN_ADMIN_KEY is not set. Export it first, e.g.:" >&2
+  echo "  export PATHOPEN_ADMIN_KEY=<your admin key>" >&2
+  exit 1
+fi
 
 echo "Running verification sweep..."
 echo ""

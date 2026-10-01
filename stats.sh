@@ -1,6 +1,12 @@
 #!/bin/bash
 BASE="https://atharvcapricorn07-pathopen.hf.space"
-ADMIN_KEY="pathable_admin_x7f2k9d1"
+ADMIN_KEY="${PATHOPEN_ADMIN_KEY:-}"
+
+if [ -z "$ADMIN_KEY" ]; then
+  echo "error: PATHOPEN_ADMIN_KEY is not set. Export it first, e.g.:" >&2
+  echo "  export PATHOPEN_ADMIN_KEY=<your admin key>" >&2
+  exit 1
+fi
 
 STATS_JSON=$(curl -s "$BASE/stats")
 
@@ -94,6 +100,6 @@ else:
         print(f\"    image: {m.get('image_url', '?')}\")
         print()
     print('  resolve with:')
-    print(f'    curl -X POST -H \"X-Admin-Key: $ADMIN_KEY\" $BASE/flagged/<id>/resolve -H \"Content-Type: application/json\" -d \'{{\"action\":\"keep\"}}\'')
-    print(f'    curl -X POST -H \"X-Admin-Key: $ADMIN_KEY\" $BASE/flagged/<id>/resolve -H \"Content-Type: application/json\" -d \'{{\"action\":\"delete\"}}\'')
+    print(f'    curl -X POST -H \"X-Admin-Key: \$PATHOPEN_ADMIN_KEY\" $BASE/flagged/<id>/resolve -H \"Content-Type: application/json\" -d \'{{\"action\":\"keep\"}}\'')
+    print(f'    curl -X POST -H \"X-Admin-Key: \$PATHOPEN_ADMIN_KEY\" $BASE/flagged/<id>/resolve -H \"Content-Type: application/json\" -d \'{{\"action\":\"delete\"}}\'')
 "
