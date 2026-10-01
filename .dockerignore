@@ -1,0 +1,13 @@
+# Keep non-runtime files out of the image. server.py serves only an allowlist
+# of static paths anyway, but these shouldn't be in the container at all.
+.git
+.gitattributes
+.dockerignore
+**/.DS_Store
+**/*.sh
+CLAUDE.md
+README.md
+LICENSE
+Procfile
+Dockerfile
+package-lock.json

@@ -13,7 +13,7 @@ There is no build step, bundler, linter, or test suite. The front end is plain H
 ```bash
 pip install -r requirements.txt
 export SUPABASE_URL=... SUPABASE_KEY=... GROQ_API_KEY=... ADMIN_KEY=...
-python server.py                                  # Flask dev server on 127.0.0.1:5000 (serves static files too)
+python server.py                                  # Flask dev server on 127.0.0.1:5000 (also serves the allowlisted static files)
 gunicorn server:app --bind 0.0.0.0:7860 --timeout 120   # what production runs
 ```
 
@@ -50,6 +50,8 @@ Ops scripts (hit the production server; require `PATHOPEN_ADMIN_KEY` in the envi
 - Both `/analyze` and verification resize images to 800px JPEG before sending.
 
 **Admin auth:** endpoints that call `require_admin()` check the `X-Admin-Key` header against the `ADMIN_KEY` env var.
+
+**Static files:** `static_files` in `server.py` serves only an allowlist: `PUBLIC_FILES` (top-level pages, manifest, `sw.js`, root icons) and `PUBLIC_DIRS` (`css/`, `js/`, `html/`, `icons/`). Everything else 404s. A new top-level page or asset folder must be added there or it won't load. The path is `posixpath.normpath`-ed before the check so `css/../server.py` can't slip through. `.dockerignore` also keeps `.git`, scripts and docs out of the image, but never add `server.py` or `requirements.txt` to it.
 
 ## Things to keep in sync
 

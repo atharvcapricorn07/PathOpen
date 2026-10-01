@@ -1,7 +1,7 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, abort
 from PIL import Image
 from supabase import create_client
-import io, os, time, math, json, re, base64, threading, requests as req
+import io, os, posixpath, time, math, json, re, base64, threading, requests as req
 from datetime import datetime, timezone
 from flask_cors import CORS
 
@@ -46,13 +46,28 @@ def require_admin():
     supplied = request.headers.get("X-Admin-Key", "")
     return supplied == ADMIN_KEY
 
+STATIC_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+# Only these paths are served as static files; everything else (server.py,
+# .git/, shell scripts, etc.) 404s. Add new pages/assets here or they won't load.
+PUBLIC_FILES = {
+    "index.html", "dashboard.html", "how-to-use.html", "privacy.html", "terms.html",
+    "manifest.json", "sw.js", "favicon.ico", "apple-touch-icon.png",
+}
+PUBLIC_DIRS = ("css/", "js/", "html/", "icons/")
+
 @app.route("/")
 def index():
-    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), "index.html")
+    return send_from_directory(STATIC_ROOT, "index.html")
 
 @app.route("/<path:filename>")
 def static_files(filename):
-    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), filename)
+    # Normalize before the allowlist check: send_from_directory only blocks
+    # escaping STATIC_ROOT, so "css/../server.py" would otherwise get through.
+    path = posixpath.normpath(filename)
+    if path not in PUBLIC_FILES and not path.startswith(PUBLIC_DIRS):
+        abort(404)
+    return send_from_directory(STATIC_ROOT, path)
 
 @app.route("/analyze", methods=["POST"])
 def analyze_image():
