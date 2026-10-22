@@ -1037,6 +1037,7 @@ function updateUserDot(userPos) {
     zIndexOffset: 1000,
     rotateWithView: false // keep the dot screen-upright as the map rotates under it (leaflet-rotate option)
   }).addTo(map);
+  renderHeading(); // hides the arrow until the first compass reading
 }
 
 function nearestRouteDistance(userPos) {
@@ -1124,15 +1125,23 @@ function onNavPositionError() {
 
 let headingActive = false;
 let compassListenerAttached = false;
-let currentAppliedHeading = 0;
+let currentAppliedHeading = 0; // compass heading (0 = north, CW), smoothed
+let hasHeading = false;         // false until the first valid reading, which is snapped to rather than eased
 let pendingHeading = null;
 let headingRAFId = null;
 
 function attachCompassListener() {
   if (compassListenerAttached) return;
   compassListenerAttached = true;
-  window.addEventListener('deviceorientationabsolute', onDeviceOrientation);
-  window.addEventListener('deviceorientation', onDeviceOrientation);
+  // Android Chrome fires both events, but plain 'deviceorientation' alpha
+  // is relative to an arbitrary starting direction and would fight the
+  // absolute one. Only fall back to it where there's no absolute event
+  // (iOS Safari, which provides webkitCompassHeading on it instead).
+  if ('ondeviceorientationabsolute' in window) {
+    window.addEventListener('deviceorientationabsolute', onDeviceOrientation);
+  } else {
+    window.addEventListener('deviceorientation', onDeviceOrientation);
+  }
 }
 
 function requestCompassPermission() {
@@ -1148,16 +1157,51 @@ function requestCompassPermission() {
   }
 }
 
+function screenOrientationAngle() {
+  if (screen.orientation && typeof screen.orientation.angle === 'number') return screen.orientation.angle;
+  if (typeof window.orientation === 'number') return (window.orientation + 360) % 360; // older iOS
+  return 0;
+}
+
+// Tilt-compensated heading of the direction the user is facing, from
+// absolute alpha/beta/gamma (W3C DeviceOrientation, Z-X'-Y'' Euler
+// angles) and the screen orientation. 360 - alpha is only the heading of
+// the device's top edge, which is only meaningful with the phone flat;
+// held upright while walking, the user faces along the back of the phone.
+// So take the screen's "up" axis U and add the back axis (-Z) weighted by
+// how far U is tilted up: flat -> pure U, upright -> pure -Z, and in
+// between both project onto the same horizontal direction.
+function tiltCompensatedHeading(alpha, beta, gamma, screenAngle) {
+  const d = Math.PI / 180;
+  const cA = Math.cos(alpha * d), sA = Math.sin(alpha * d);
+  const cB = Math.cos(beta * d),  sB = Math.sin(beta * d);
+  const cG = Math.cos(gamma * d), sG = Math.sin(gamma * d);
+  // Device axes in earth coordinates (x = east, y = north, z = up).
+  const X = [cA * cG - sA * sB * sG, sA * cG + cA * sB * sG, -cB * sG];
+  const Y = [-sA * cB, cA * cB, sB];
+  const Z = [cA * sG + sA * sB * cG, sA * sG - cA * sB * cG, cB * cG];
+  // Screen-up axis: device top in portrait, device right side when the
+  // screen is rotated 90deg (landscape), etc.
+  const cS = Math.cos(screenAngle * d), sS = Math.sin(screenAngle * d);
+  const U = [cS * Y[0] + sS * X[0], cS * Y[1] + sS * X[1], cS * Y[2] + sS * X[2]];
+  const east = U[0] - U[2] * Z[0];
+  const north = U[1] - U[2] * Z[1];
+  return (Math.atan2(east, north) / d + 360) % 360;
+}
+
 function onDeviceOrientation(e) {
   if (!headingActive) return;
   let heading;
   if (typeof e.webkitCompassHeading === 'number' && e.webkitCompassHeading >= 0) {
-    heading = e.webkitCompassHeading; // iOS: already true compass heading, 0 = north, CW
-  } else if (e.alpha != null) {
-    heading = (360 - e.alpha) % 360; // best-effort for other browsers
+    // iOS: already true compass heading of the device top, 0 = north, CW.
+    // Only needs correcting when the screen isn't portrait.
+    heading = (e.webkitCompassHeading + screenOrientationAngle()) % 360;
+  } else if (e.alpha != null && e.beta != null && e.gamma != null) {
+    heading = tiltCompensatedHeading(e.alpha, e.beta, e.gamma, screenOrientationAngle());
   } else {
     return;
   }
+  if (!isFinite(heading)) return;
   pendingHeading = heading;
   if (headingRAFId == null) headingRAFId = requestAnimationFrame(applyPendingHeading);
 }
@@ -1165,17 +1209,51 @@ function onDeviceOrientation(e) {
 function applyPendingHeading() {
   headingRAFId = null;
   if (pendingHeading == null) return;
-  let diff = pendingHeading - currentAppliedHeading;
-  diff = ((diff + 180) % 360 + 360) % 360 - 180; // shortest signed angular distance
-  if (Math.abs(diff) < 1) return; // skip sub-degree jitter — cheaper and steadier
-  currentAppliedHeading = (currentAppliedHeading + diff * 0.35 + 360) % 360;
+  if (!hasHeading) {
+    // Snap to the first reading instead of easing in from 0 (north).
+    hasHeading = true;
+    currentAppliedHeading = pendingHeading;
+  } else {
+    let diff = pendingHeading - currentAppliedHeading;
+    diff = ((diff + 180) % 360 + 360) % 360 - 180; // shortest signed angular distance
+    if (Math.abs(diff) < 1) return; // skip sub-degree jitter — cheaper and steadier
+    currentAppliedHeading = (currentAppliedHeading + diff * 0.35 + 360) % 360;
+  }
+  renderHeading();
   if (manualRotationActive) return; // user has fingers on the map right now — don't fight their gesture
   // map.setBearing comes from leaflet-rotate — it rotates the tile layer,
   // routing line, and every marker's *position* correctly. Markers keep
   // their own upright orientation automatically because they're created
   // with rotateWithView: false (see updateUserDot / showNearbyADAMarkers).
-  map.setBearing(currentAppliedHeading);
+  // setBearing(b) rotates the map b degrees clockwise on screen, so
+  // heading-up needs b = -heading.
+  map.setBearing((360 - currentAppliedHeading) % 360);
 }
+
+// The user arrow (.user-dot-heading) is a static screen-up triangle on a
+// marker that doesn't rotate with the map, so rotate it ourselves: a map
+// direction with azimuth A appears on screen at A + bearing. Normally
+// bearing = -heading and this comes out to 0, but not before the compass
+// takes over or while the user has manually twisted the map.
+function renderHeading() {
+  if (!navUserMarker) return;
+  const el = navUserMarker.getElement();
+  if (!el) return;
+  const dot = el.querySelector('.user-dot');
+  const arrow = el.querySelector('.user-dot-heading');
+  if (!hasHeading) {
+    arrow.style.display = 'none';
+    dot.style.transform = '';
+    return;
+  }
+  arrow.style.display = '';
+  const deg = ((currentAppliedHeading + map.getBearing()) % 360 + 360) % 360;
+  dot.style.transformOrigin = '50% 50%';
+  dot.style.transform = `rotate(${deg}deg)`;
+}
+// leaflet-rotate fires 'rotate' from setBearing, which both the compass
+// path above and its two-finger touchRotate handler go through.
+map.on('rotate', renderHeading);
 
 // =====================================================================
 // --- Manual two-finger rotation vs. compass-driven rotation ---
@@ -1205,7 +1283,7 @@ function resumeManualRotationSoon() {
   clearTimeout(manualRotationResumeTimer);
   manualRotationResumeTimer = setTimeout(() => {
     manualRotationActive = false;
-    map.setBearing(currentAppliedHeading);
+    map.setBearing((360 - currentAppliedHeading) % 360);
   }, MANUAL_ROTATION_RESUME_DELAY_MS);
 }
 
@@ -1370,6 +1448,7 @@ function exitNavMode() {
     headingActive = false;
     pendingHeading = null;
     currentAppliedHeading = 0;
+    hasHeading = false;
     map.setBearing(0);
   }
   clearTimeout(followResumeTimer);
