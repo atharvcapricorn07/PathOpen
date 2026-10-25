@@ -128,9 +128,8 @@ def analyze_image():
         # ignored by the API and the model still emits <think>...</think>.
         raw = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
 
-        match = re.search(r'\[.*?\]', raw, re.DOTALL)
-        labels = json.loads(match.group()) if match else []
-        labels = [l for l in labels if l in VALID_LABELS]
+        labels = parse_labels(raw)
+        print(f"Parsed labels: {labels}")
 
         result = {label: 1.0 for label in labels} if labels else {"_caption": "no features detected"}
         return jsonify(result)
@@ -138,6 +137,43 @@ def analyze_image():
     except Exception as e:
         print(f"ERROR in analyze_image: {e}")
         return jsonify({"error": str(e)}), 500
+
+def normalize_label(text):
+    """Map a model-written feature name onto one of VALID_LABELS, or None."""
+    t = str(text).lower().strip().strip('."\'')
+    if t in VALID_LABELS:
+        return t
+    if "curb" in t:
+        return "a curb cut"
+    if "stair" in t or t in ("steps", "step", "a step", "a set of steps", "stairway"):
+        return "a staircase"
+    if "ramp" in t:
+        return "a ramp"
+    if "wheelchair" in t:
+        return "a wheelchair"
+    if "elevator" in t or t in ("lift", "a lift"):
+        return "an elevator"
+    if "handrail" in t or "railing" in t or t in ("rail", "a rail", "banister", "a banister"):
+        return "a handrail"
+    return None
+
+def parse_labels(raw):
+    """Take the last bracketed JSON list in the reply and return valid, de-duplicated labels."""
+    for m in reversed(re.findall(r'\[[^\[\]]*\]', raw, re.DOTALL)):
+        try:
+            items = json.loads(m)
+        except Exception:
+            continue
+        if not isinstance(items, list):
+            continue
+        out = []
+        for it in items:
+            lab = normalize_label(it)
+            if lab and lab not in out:
+                out.append(lab)
+        return out
+    return []
+
 
 def verify_image_matches_label(image_bytes, label):
     """Ask the vision model whether the image genuinely shows `label`.
@@ -690,4 +726,4 @@ def verify_pending():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    app.run(debug=False)
