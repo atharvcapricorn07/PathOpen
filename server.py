@@ -82,7 +82,9 @@ def analyze_image():
         prompt = (
             "You are an ADA accessibility feature detector. "
             "Look at this image and identify which of the following are CLEARLY and VISIBLY present. "
-            "Only include features you can actually see — do not guess.\n\n"
+            "Only include features you can actually see — do not guess. "
+            "A photo can contain several features, so list every one that is visible "
+            "(for example, a staircase with a handrail beside it gets both).\n\n"
             "Features to check:\n"
             "- a staircase (steps going up or down)\n"
             "- a ramp (sloped surface for wheelchair access, distinct from stairs)\n"
@@ -103,7 +105,7 @@ def analyze_image():
             },
             json={
                 "model": VISION_MODEL,
-                "max_tokens": 512,
+                "max_tokens": 1024,
                 "reasoning_effort": "none",  # qwen3.6 is a reasoning model; skip <think> to save tokens
                 "messages": [{
                     "role": "user",
@@ -121,7 +123,9 @@ def analyze_image():
             }
         )
 
-        raw = response.json()["choices"][0]["message"]["content"].strip()
+        choice = response.json()["choices"][0]
+        raw = (choice["message"].get("content") or "").strip()
+        print(f"Groq finish_reason: {choice.get('finish_reason')}")
         print(f"Groq response: {raw}")
 
         # Defensively strip any reasoning block, in case reasoning_effort is
@@ -172,7 +176,18 @@ def parse_labels(raw):
             if lab and lab not in out:
                 out.append(lab)
         return out
-    return []
+    # No list at all: the model answered in plain words. Scan for feature words,
+    # skipping lines that say nothing was found.
+    out = []
+    for line in raw.lower().splitlines():
+        if re.search(r"\b(no|not|none|without)\b", line):
+            continue
+        for word in ("stair", "steps", "ramp", "wheelchair", "elevator", "curb", "handrail", "railing"):
+            if word in line:
+                lab = normalize_label(word)
+                if lab and lab not in out:
+                    out.append(lab)
+    return out
 
 
 def verify_image_matches_label(image_bytes, label):
