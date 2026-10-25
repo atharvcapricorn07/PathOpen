@@ -27,7 +27,7 @@ VALID_LABELS = ["a staircase", "a ramp", "a wheelchair", "an elevator", "a curb 
 # qwen/qwen3.6-27b (currently a preview-tier model on Groq, but the only
 # vision-capable option in the migration path). Centralized here so both
 # vision call sites stay in sync if this needs to change again.
-VISION_MODEL = "qwen/qwen3.6-27b"
+VISION_MODEL = "qwen/qwen3.8-27b"
 
 
 def haversine_meters(lat1, lon1, lat2, lon2):
