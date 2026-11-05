@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from flask_cors import CORS
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 12 * 1024 * 1024  # reject uploads over 12 MB
 CORS(app, origins=["https://pathopen.vercel.app", "https://pathopen.org", "https://www.pathopen.org", "https://atharvcapricorn07-pathopen.hf.space", "http://127.0.0.1:5000"])
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
@@ -283,14 +284,6 @@ def run_verification_and_flag(marker_id, image_bytes, label):
     except Exception as e:
         print(f"ERROR in run_verification_and_flag for marker {marker_id}: {e}")
 
-@app.route("/debug")
-def debug():
-    return jsonify({
-        "supabase_url":    SUPABASE_URL,
-        "key_length":      len(SUPABASE_KEY) if SUPABASE_KEY else 0,
-        "key_starts_with": SUPABASE_KEY[:10] if SUPABASE_KEY else "EMPTY"
-    })
-
 @app.route("/markers", methods=["GET"])
 def get_markers():
     try:
@@ -358,6 +351,20 @@ def get_all_markers():
         print(f"ERROR in get_all_markers: {e}")
         return jsonify({"error": str(e)}), 500
 
+def strip_image_metadata(raw_bytes):
+    """Re-encode an uploaded photo as a plain JPEG so EXIF data (GPS position,
+    capture time, device model) is never stored in the public bucket."""
+    try:
+        img = Image.open(io.BytesIO(raw_bytes))
+        from PIL import ImageOps
+        img = ImageOps.exif_transpose(img).convert("RGB")
+        img.thumbnail((2048, 2048))
+        out = io.BytesIO()
+        img.save(out, format="JPEG", quality=88)
+        return out.getvalue()
+    except Exception:
+        return None
+
 @app.route("/save-marker", methods=["POST"])
 def save_marker():
     try:
@@ -368,6 +375,12 @@ def save_marker():
         force = request.form.get('force', '0') == '1'
 
         file_bytes = file.read() if file else None
+        if file_bytes:
+            file_bytes = strip_image_metadata(file_bytes)
+            if file_bytes is None:
+                return jsonify({"error": "Unsupported or corrupt image."}), 400
+        if not label or len(label) > 60:
+            return jsonify({"error": "Invalid label."}), 400
 
         if not force:
             delta    = 0.0002
@@ -403,7 +416,8 @@ def save_marker():
 
         image_url = None
         if file_bytes:
-            filename    = f"{label.replace(' ', '_')}_{int(abs(lat)*1000)}_{int(abs(lng)*1000)}_{int(time.time())}.jpg"
+            safe_label  = re.sub(r'[^a-z0-9]+', '_', label.lower()).strip('_')[:40] or 'marker'
+            filename    = f"{safe_label}_{int(abs(lat)*1000)}_{int(abs(lng)*1000)}_{int(time.time())}.jpg"
             storage_url = f"{SUPABASE_URL}/storage/v1/object/ada-images/{filename}"
             headers     = {
                 "Authorization": f"Bearer {SUPABASE_KEY.strip()}",
@@ -510,6 +524,8 @@ def track_route():
 
 @app.route("/bugs")
 def bugs():
+    if not require_admin():
+        return jsonify({"error": "unauthorized"}), 403
     try:
         result = (
             supabase.table("bug_reports")
@@ -741,4 +757,4 @@ def verify_pending():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    app.run(debug=False)

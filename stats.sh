@@ -43,7 +43,7 @@ for label, count in d['markers_by_label'].items():
 echo ""
 echo "--- bug reports ---"
 
-BUGS_JSON=$(curl -s "$BASE/bugs")
+BUGS_JSON=$(curl -s -H "X-Admin-Key: $PATHOPEN_ADMIN_KEY" "$BASE/bugs")
 
 echo "$BUGS_JSON" | python3 -c "
 import json, sys
