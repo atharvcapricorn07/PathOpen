@@ -546,7 +546,7 @@ async function geocode(q, signal) {
 }
 
 // --- Geolocation ---
-function requestLocation() {
+function requestLocation(isRetry = false) {
   if (!navigator.geolocation) {
     showToast('Geolocation not supported by your browser.');
     hideGlobeIntro();
@@ -568,13 +568,18 @@ function requestLocation() {
       hideGlobeIntro();
       if (err.code === 1) {
         showToast('Location blocked. Enable it in browser settings and refresh.', 5000);
-      } else if (err.code === 2) {
-        showToast('Location unavailable. Try again.', 4000);
+      } else if (err.code === 2 && !isRetry) {
+        // Desktop browsers often can't get a fix on the first try (no GPS, Wi-Fi
+        // positioning still warming up). Retry once with relaxed settings.
+        requestLocation(true);
       } else {
-        showToast('Location request timed out.', 4000);
+        showToast("Couldn't detect your location. Type your starting address in the Start box instead.", 6000);
+        if (startInput) startInput.focus();
       }
     },
-    { timeout: 10000, maximumAge: 0 }
+    isRetry
+      ? { enableHighAccuracy: false, timeout: 20000, maximumAge: 300000 }
+      : { timeout: 10000, maximumAge: 0 }
   );
 }
 
